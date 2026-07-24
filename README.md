@@ -6,7 +6,7 @@ AgoraSim runs a paired synthetic-society experiment that tests whether a verifie
 
 ## Current status
 
-The deterministic and LLM-driven Mock/recorded paths, Wallet Policy, x402 v2 contract, receipt verifier, PostgreSQL API, SSE event stream, Replay, Live Evidence Lab, Compare view, and desktop/mobile E2E are implemented. Real Injective testnet settlement is coded but has not been executed because funded branch wallets, a facilitator Gas key, a merchant address, and service credentials are not configured. No transaction hash is claimed until `fixtures/testnet-seed-receipts.json` is created by the real payment command.
+The deterministic and LLM-driven Mock/recorded paths, Wallet Policy, x402 v2 contract, receipt verifier, PostgreSQL API, SSE event stream, Replay, navigable Live Evidence Lab, multi-mode Compare view, and desktop/mobile E2E are implemented. Verified seed receipt Fixtures are replayed into the paired Runner, including branch wallet addresses, tx hashes, Evidence and Blockscout links. Real Injective testnet settlement has not been executed because funded branch wallets, a facilitator Gas key, a merchant address, and service credentials are not configured. No transaction hash is claimed until `fixtures/testnet-seed-receipts.json` is created by the real payment command.
 
 See [docs/DOD.md](./docs/DOD.md) for the PRD 16.2 evidence matrix.
 
@@ -84,7 +84,9 @@ Execute the four required seed payments once:
 pnpm seed:testnet
 ```
 
-The command enforces Wallet Policy before `createPayment`, validates the confirmed USDC `Transfer` log with viem, creates bounded Evidence, and writes each completed payment immediately to `fixtures/testnet-seed-receipts.json`. Existing `(branch, logicalAgentId)` entries are skipped so reruns do not intentionally pay twice.
+The command enforces Wallet Policy before `createPayment`, validates the confirmed USDC `Transfer` log with viem, creates bounded Evidence, and writes each completed payment immediately to `fixtures/testnet-seed-receipts.json`. Existing `(branch, logicalAgentId)` entries are strictly validated and skipped so reruns do not intentionally pay twice.
+
+After all four payments finish, restart the API. Testnet experiment creation is rejected with `TESTNET_SEED_RECEIPTS_NOT_READY` until the complete Fixture is loaded. Once loaded, paired runs consume the four recorded receipts and never sign or settle them again.
 
 ## Verification
 

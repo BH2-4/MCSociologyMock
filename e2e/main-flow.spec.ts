@@ -8,11 +8,18 @@ test("inspects the recorded evidence chain and paired comparison", async ({ page
   await expect(page.getByText("Synthetic simulation. Not a real-market forecast.")).toBeVisible();
   await expect(page.getByText("Evidence to paid adoption")).toBeVisible();
   await expect(page.getByText("Payment settled").first()).toBeVisible();
+  await expect(page.getByRole("region", { name: "Event lineage" })).toBeVisible();
+  const childLink = page.getByRole("region", { name: "Event lineage" }).getByRole("button").first();
+  if (await childLink.count()) await childLink.click();
   await page.screenshot({ path: `test-results/${testInfo.project.name}-lab.png`, fullPage: true });
 
   await page.getByRole("button", { name: "Compare" }).click();
   await expect(page.getByRole("table", { name: "Branch comparison" })).toBeVisible();
   await expect(page.getByText("Control Evidence leak = 0")).toBeVisible();
+  await expect(page.getByText("Wallet branches isolated")).toBeVisible();
+  await expect(page.getByText("demo-seed-01").first()).toBeVisible();
+  await expect(page.getByText("evidence-blind", { exact: true })).toBeVisible();
+  await expect(page.getByText("llm", { exact: true })).toBeVisible();
   await expect(page.getByText("INSPECT_EVIDENCE")).toBeVisible();
   await page.screenshot({ path: `test-results/${testInfo.project.name}-compare.png`, fullPage: true });
 });

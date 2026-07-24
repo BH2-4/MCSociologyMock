@@ -88,6 +88,7 @@ blockquote { border-left: 3px solid #ef8354; color: #3e4a51; font-size: 13px; li
 .timeline::before { background: #d5dcdf; bottom: 18px; content: ""; left: 9px; position: absolute; top: 18px; width: 1px; }
 .timeline-event { align-items: center; background: transparent; border: 0; cursor: pointer; display: grid; gap: 10px; grid-template-columns: 18px minmax(0, 1fr) auto; min-height: 45px; padding: 5px 0; position: relative; text-align: left; width: 100%; }
 .timeline-event:hover .event-copy strong { color: #087f7b; }
+.timeline-event.selected { background: #f2f7f7; }
 .event-dot { background: #fff; border: 3px solid #839097; border-radius: 50%; height: 11px; margin-left: 4px; position: relative; width: 11px; z-index: 1; }
 .event-dot.evidence_exposed, .event-dot.evidence_inspected { border-color: #0c8b84; }
 .event-dot.x402_payment_settled, .event-dot.product_adopted { border-color: #2e8659; }
@@ -96,6 +97,16 @@ blockquote { border-left: 3px solid #ef8354; color: #3e4a51; font-size: 13px; li
 .event-copy strong { font-size: 12px; font-weight: 700; }
 .event-copy small { color: #758188; font-size: 10px; }
 .timeline-event code { color: #839097; font-size: 9px; }
+.event-inspector { border-top: 1px solid #d9dee2; display: grid; gap: 10px; margin-top: 12px; padding-top: 12px; }
+.event-inspector > div:first-child { display: grid; gap: 4px; }
+.event-inspector span { color: #718087; font-size: 10px; }
+.event-inspector strong { font-size: 11px; }
+.event-inspector code { color: #68757c; font-size: 9px; overflow-wrap: anywhere; }
+.lineage-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.lineage-links button { align-items: center; background: #fff; border: 1px solid #cbd2d7; color: #354149; cursor: pointer; display: grid; gap: 2px 6px; grid-template-columns: auto 1fr; padding: 6px 8px; text-align: left; }
+.lineage-links button svg { grid-row: 1 / 3; }
+.lineage-links button strong { grid-column: 2; }
+.lineage-root { border: 1px solid #d9dee2; padding: 7px 9px; }
 
 .network-map { background: #f7f9fa; border: 1px solid #e0e4e7; display: block; height: auto; width: 100%; }
 .network-map line { stroke: #d6dde0; stroke-width: .7; }
@@ -117,6 +128,11 @@ blockquote { border-left: 3px solid #ef8354; color: #3e4a51; font-size: 13px; li
 .comparison-row { align-items: center; border-bottom: 1px solid #e0e4e7; display: grid; font-size: 12px; grid-template-columns: 1.4fr repeat(3, 1fr); min-height: 48px; }
 .comparison-row.header { color: #758188; font-size: 10px; font-weight: 750; min-height: 34px; text-transform: uppercase; }
 .comparison-row span:not(:first-child) { text-align: right; }
+.baseline-table { overflow-x: auto; }
+.baseline-heading, .baseline-row { align-items: center; display: grid; gap: 8px; grid-template-columns: 1.15fr 1.05fr repeat(4, .68fr); }
+.baseline-heading { color: #758188; font-size: 10px; font-weight: 750; margin-top: 22px; min-height: 34px; text-transform: uppercase; }
+.baseline-row { border-bottom: 1px solid #e0e4e7; font-size: 11px; min-height: 42px; }
+.baseline-heading span:nth-child(n+3), .baseline-row span:nth-child(n+3) { text-align: right; }
 .validation-pane { border-right: 1px solid #d9dee2; }
 .check-row, .action-row { align-items: center; border-bottom: 1px solid #e3e7e9; display: flex; font-size: 12px; justify-content: space-between; min-height: 39px; }
 .check-row strong, .action-row strong { font-size: 10px; }
@@ -149,5 +165,7 @@ footer { align-items: center; background: #252e33; color: #d9dfe2; display: flex
   .evidence-pane, .mechanism-pane, .network-pane, .comparison-table, .validation-pane, .action-pane { padding: 16px 14px; }
   .comparison-row { grid-template-columns: 1.45fr repeat(3, .8fr); }
   .comparison-row strong, .comparison-row span { font-size: 10px; overflow-wrap: anywhere; }
+  .baseline-heading, .baseline-row { grid-template-columns: 110px 105px repeat(4, 74px); min-width: 535px; }
+  .baseline-heading span, .baseline-row strong, .baseline-row span { font-size: 9px; white-space: nowrap; }
   footer { align-items: flex-start; display: grid; gap: 2px; height: auto; min-height: 44px; padding: 7px 14px; position: static; }
 }

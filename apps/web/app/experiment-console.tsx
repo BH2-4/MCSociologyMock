@@ -5,6 +5,8 @@ import {
   Activity,
   BadgeCheck,
   CircleDollarSign,
+  CornerDownRight,
+  CornerUpLeft,
   Download,
   ExternalLink,
   FlaskConical,
@@ -22,6 +24,13 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4100";
 type View = "lab" | "compare";
 type BranchChoice = "control" | "treatment";
 type DecisionChoice = "evidence-blind" | "fixed-threshold" | "llm";
+interface ComparisonSummary {
+  protocolSeed: string;
+  decisionMode: DecisionChoice;
+  pairedEffect: number | null;
+  controlAdoptionRate: number | null;
+  treatmentAdoptionRate: number | null;
+}
 
 function percent(value: number): string {
   return `${(value * 100).toFixed(value === 0 ? 0 : 1)}%`;
@@ -29,6 +38,15 @@ function percent(value: number): string {
 
 function short(value: string, size = 8): string {
   return value.length <= size * 2 + 1 ? value : `${value.slice(0, size)}...${value.slice(-size)}`;
+}
+
+function stabilityFor(comparisons: ComparisonSummary[], mode: DecisionChoice): string {
+  const effects = comparisons
+    .filter((comparison) => comparison.decisionMode === mode && comparison.pairedEffect !== null)
+    .map((comparison) => Math.sign(comparison.pairedEffect as number));
+  if (effects.length === 0) return "Not run";
+  if (effects.length === 1) return "1 seed";
+  return new Set(effects).size > 1 ? "Unstable" : "Stable";
 }
 
 function eventLabel(event: ExperimentEvent): string {
@@ -110,7 +128,13 @@ function NetworkMap({ run }: { run: BranchRun }) {
   );
 }
 
-export function ExperimentConsole({ initialResult }: { initialResult: PairedExperimentResult }) {
+export function ExperimentConsole({
+  initialResult,
+  initialComparisons,
+}: {
+  initialResult: PairedExperimentResult;
+  initialComparisons: ComparisonSummary[];
+}) {
   const [result, setResult] = useState(initialResult);
   const [view, setView] = useState<View>("lab");
   const [branchChoice, setBranchChoice] = useState<BranchChoice>("treatment");
@@ -119,6 +143,8 @@ export function ExperimentConsole({ initialResult }: { initialResult: PairedExpe
   const [pairId, setPairId] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [comparisons, setComparisons] = useState(initialComparisons);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const branch = result[branchChoice];
   const mechanism = useMemo(() => representativeMechanism(branch), [branch]);
   const claim = branch.claims[0];
@@ -129,6 +155,40 @@ export function ExperimentConsole({ initialResult }: { initialResult: PairedExpe
     : result.control.decisionMode === "evidence-blind"
       ? ["Evidence-blind effect = 0", result.validation.evidenceBlindZero === true]
       : ["LLM result direction unrestricted", true];
+  const realSeedPaymentCount = [...result.control.payments, ...result.treatment.payments]
+    .filter((payment) => payment.source === "INJECTIVE_TESTNET").length;
+  const blockscoutUrl = branchChoice === "treatment" ? claimEvidence?.blockscoutUrl : null;
+  const selectedEvent = (selectedEventId
+    ? branch.events.find((event) => event.eventId === selectedEventId)
+    : undefined) ?? mechanism[0];
+  const parentEvent = selectedEvent?.causedByEventId
+    ? branch.events.find((event) => event.eventId === selectedEvent.causedByEventId)
+    : undefined;
+  const childEvents = selectedEvent
+    ? branch.events.filter((event) => event.causedByEventId === selectedEvent.eventId)
+    : [];
+
+  function mergeComparisons(incoming: ComparisonSummary[]) {
+    setComparisons((current) => {
+      const merged = new Map(current.map((item) => [`${item.protocolSeed}:${item.decisionMode}`, item]));
+      for (const item of incoming) merged.set(`${item.protocolSeed}:${item.decisionMode}`, item);
+      return [...merged.values()].sort((left, right) =>
+        left.protocolSeed.localeCompare(right.protocolSeed) || left.decisionMode.localeCompare(right.decisionMode)
+      );
+    });
+  }
+
+  async function showCompare() {
+    setView("compare");
+    try {
+      const response = await fetch(`${API_URL}/v1/experiments/agorasim-p0/comparison`);
+      if (!response.ok) return;
+      const body = await response.json() as { pairs?: ComparisonSummary[] };
+      if (body.pairs) mergeComparisons(body.pairs);
+    } catch {
+      // The recorded comparison remains available without an API runtime.
+    }
+  }
 
   async function runPair() {
     setRunning(true);
@@ -146,6 +206,13 @@ export function ExperimentConsole({ initialResult }: { initialResult: PairedExpe
       const pair = await loaded.json() as { result: PairedExperimentResult };
       setResult(pair.result);
       setPairId(createdBody.pairId);
+      mergeComparisons([{
+        protocolSeed,
+        decisionMode,
+        pairedEffect: pair.result.pairedEffect,
+        controlAdoptionRate: pair.result.control.metrics.adoptionRate,
+        treatmentAdoptionRate: pair.result.treatment.metrics.adoptionRate,
+      }]);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Run failed");
     } finally {
@@ -175,7 +242,7 @@ export function ExperimentConsole({ initialResult }: { initialResult: PairedExpe
       <section className="control-strip" aria-label="Experiment controls">
         <div className="segmented" aria-label="View">
           <button className={view === "lab" ? "active" : ""} onClick={() => setView("lab")}><Activity size={15} /> Live Lab</button>
-          <button className={view === "compare" ? "active" : ""} onClick={() => setView("compare")}><GitCompareArrows size={15} /> Compare</button>
+          <button className={view === "compare" ? "active" : ""} onClick={showCompare}><GitCompareArrows size={15} /> Compare</button>
         </div>
         <div className="run-controls">
           <select aria-label="Decision mode" value={decisionMode} onChange={(event) => setDecisionMode(event.target.value as DecisionChoice)}>
@@ -197,7 +264,7 @@ export function ExperimentConsole({ initialResult }: { initialResult: PairedExpe
         <div><span>Treatment adoption</span><strong>{percent(result.treatment.metrics.adoptionRate)}</strong><small>{result.treatment.metrics.adoptedNonSeed} / 22 non-seed</small></div>
         <div className="effect"><span>Paired effect</span><strong>{result.pairedEffect >= 0 ? "+" : ""}{percent(result.pairedEffect)}</strong><small>Treatment - Control</small></div>
         <div><span>Evidence exposed</span><strong>{percent(result.treatment.metrics.evidenceExposureRate)}</strong><small>Control: {percent(result.control.metrics.evidenceExposureRate)}</small></div>
-        <div><span>Chain mode</span><strong className="text-value">Mock receipts</strong><small>No testnet tx claimed</small></div>
+        <div><span>Chain mode</span><strong className="text-value">{realSeedPaymentCount === 4 ? "Injective testnet" : "Mock receipts"}</strong><small>{realSeedPaymentCount === 4 ? "4 verified seed transactions" : "No testnet tx claimed"}</small></div>
       </section>
 
       {view === "lab" ? (
@@ -224,9 +291,15 @@ export function ExperimentConsole({ initialResult }: { initialResult: PairedExpe
               <h3>Does not prove</h3>
               <p>Product quality, actual usage, review truth, recommendation motive</p>
             </div>
-            <button className="icon-command" disabled={!claimEvidence?.blockscoutUrl} title="Open Blockscout transaction">
-              <ExternalLink size={15} /> {claimEvidence?.blockscoutUrl ? "Open transaction" : "No chain transaction in Mock mode"}
-            </button>
+            <a
+              className={`icon-command ${!blockscoutUrl ? "disabled" : ""}`}
+              href={blockscoutUrl ?? undefined}
+              target="_blank"
+              rel="noreferrer"
+              title="Open Blockscout transaction"
+            >
+              <ExternalLink size={15} /> {blockscoutUrl ? "Open transaction" : "No visible chain transaction"}
+            </a>
           </aside>
 
           <section className="mechanism-pane">
@@ -239,13 +312,35 @@ export function ExperimentConsole({ initialResult }: { initialResult: PairedExpe
             </div>
             <div className="timeline">
               {mechanism.map((event) => (
-                <button className="timeline-event" key={event.eventId} title={`Parent: ${event.causedByEventId ?? "root"}`}>
+                <button
+                  className={`timeline-event ${selectedEvent?.eventId === event.eventId ? "selected" : ""}`}
+                  key={event.eventId}
+                  title={`Parent: ${event.causedByEventId ?? "root"}`}
+                  onClick={() => setSelectedEventId(event.eventId)}
+                >
                   <span className={`event-dot ${event.type.toLowerCase()}`} />
                   <span className="event-copy"><strong>{eventLabel(event)}</strong><small>Tick {event.tick} · {event.actorId ?? event.targetId ?? "system"}</small></span>
                   <code>{short(event.eventId, 5)}</code>
                 </button>
               ))}
             </div>
+            {selectedEvent && (
+              <div className="event-inspector" role="region" aria-label="Event lineage">
+                <div><span>Selected event</span><strong>{eventLabel(selectedEvent)}</strong><code>{selectedEvent.eventId}</code></div>
+                <div className="lineage-links">
+                  {parentEvent ? (
+                    <button onClick={() => setSelectedEventId(parentEvent.eventId)}>
+                      <CornerUpLeft size={14} /><span>Parent</span><strong>{eventLabel(parentEvent)}</strong>
+                    </button>
+                  ) : <span className="lineage-root">Root event</span>}
+                  {childEvents.map((child) => (
+                    <button key={child.eventId} onClick={() => setSelectedEventId(child.eventId)}>
+                      <CornerDownRight size={14} /><span>Child</span><strong>{eventLabel(child)}</strong>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
 
           <aside className="network-pane">
@@ -277,6 +372,19 @@ export function ExperimentConsole({ initialResult }: { initialResult: PairedExpe
                 <strong>{label}</strong><span>{percent(Number(control))}</span><span>{percent(Number(treatment))}</span><span>{Number(treatment) - Number(control) >= 0 ? "+" : ""}{percent(Number(treatment) - Number(control))}</span>
               </div>
             ))}
+            <div className="baseline-table">
+              <div className="baseline-heading"><span>Paired Seed</span><span>Decision mode</span><span>Control</span><span>Treatment</span><span>Effect</span><span>Direction</span></div>
+              {comparisons.map((comparison) => (
+                <div className="baseline-row" key={`${comparison.protocolSeed}:${comparison.decisionMode}`}>
+                  <strong>{comparison.protocolSeed}</strong>
+                  <span>{comparison.decisionMode}</span>
+                  <span>{comparison.controlAdoptionRate === null ? "Not run" : percent(comparison.controlAdoptionRate)}</span>
+                  <span>{comparison.treatmentAdoptionRate === null ? "Not run" : percent(comparison.treatmentAdoptionRate)}</span>
+                  <span>{comparison.pairedEffect === null ? "Not run" : `${comparison.pairedEffect >= 0 ? "+" : ""}${percent(comparison.pairedEffect)}`}</span>
+                  <span>{stabilityFor(comparisons, comparison.decisionMode)}</span>
+                </div>
+              ))}
+            </div>
           </div>
           <aside className="validation-pane">
             <div className="pane-heading"><div><span className="section-kicker">Validation</span><h2>Failure checks</h2></div><ShieldCheck size={20} /></div>
@@ -285,6 +393,8 @@ export function ExperimentConsole({ initialResult }: { initialResult: PairedExpe
               ["Claim parity", result.validation.claimParity],
               ["Control Evidence leak = 0", result.validation.controlEvidenceLeakCount === 0],
               ["Treatment omissions = 0", result.validation.treatmentEvidenceOmissionCount === 0],
+              ["Wallet branches isolated", result.validation.walletIsolation],
+              ["Seed payments symmetric", result.validation.seedPaymentParity],
               ["Balances conserved", result.validation.balancesConserved],
               ["Supply conserved", result.validation.suppliesConserved],
               modeValidation,
