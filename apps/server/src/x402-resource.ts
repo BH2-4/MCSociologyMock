@@ -1,5 +1,5 @@
 import { injectivePaymentMiddleware } from "@injectivelabs/x402/middleware";
-import type { Express, Request } from "express";
+import type { Express, Request as ExpressRequest } from "express";
 import { hashObject } from "@agorasim/core";
 
 import {
@@ -11,15 +11,17 @@ import {
 
 export interface X402ResourceConfig {
   facilitatorUrl: string;
+  facilitatorServiceToken: string;
   publicResourceBaseUrl: string;
   merchantAddress: `0x${string}`;
 }
 
-interface PaidRequest extends Request {
+interface PaidRequest extends ExpressRequest {
   x402?: { payer?: `0x${string}` };
 }
 
 export function registerX402Resource(app: Express, config: X402ResourceConfig): void {
+  installFacilitatorAuthentication(config.facilitatorUrl, config.facilitatorServiceToken);
   app.use(injectivePaymentMiddleware({
     [`POST ${ECO_CUP_ROUTE}`]: {
       description: "Purchase one simulated Eco Cup",
@@ -47,8 +49,32 @@ export function registerX402Resource(app: Express, config: X402ResourceConfig): 
     response.status(200).json({
       offerId: "offer_eco_cup",
       fulfillmentId: `fulfillment:${hashObject({ idempotencyKey, payer: request.x402?.payer }).slice(0, 20)}`,
-      status: "PENDING_RECONCILIATION",
+      status: "FULFILLED_ON_SETTLEMENT_RELEASE",
       disclaimer: "Test asset with no real value.",
     });
   });
+}
+
+let authenticatedFacilitator: { baseUrl: string; token: string } | null = null;
+let nativeFetch: typeof fetch | null = null;
+
+function installFacilitatorAuthentication(baseUrl: string, token: string): void {
+  if (!token) throw new Error("Facilitator service token is required in testnet mode");
+  const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
+  if (authenticatedFacilitator) {
+    if (authenticatedFacilitator.baseUrl !== normalizedBaseUrl || authenticatedFacilitator.token !== token) {
+      throw new Error("Only one authenticated facilitator may be configured per resource process");
+    }
+    return;
+  }
+  nativeFetch = globalThis.fetch.bind(globalThis);
+  authenticatedFacilitator = { baseUrl: normalizedBaseUrl, token };
+  globalThis.fetch = (input: string | URL | Request, init?: RequestInit) => {
+    const url = typeof input === "string" || input instanceof URL ? String(input) : input.url;
+    const isFacilitatorCall = url === `${normalizedBaseUrl}/verify` || url === `${normalizedBaseUrl}/settle`;
+    if (!isFacilitatorCall) return nativeFetch!(input, init);
+    const headers = new Headers(init?.headers);
+    headers.set("Authorization", `Bearer ${token}`);
+    return nativeFetch!(input, { ...init, headers });
+  };
 }

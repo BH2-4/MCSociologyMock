@@ -6,7 +6,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/index.ts",
+    "dev:facilitator": "tsx watch src/facilitator.ts",
     "start": "node dist/index.js",
+    "start:facilitator": "node dist/facilitator.js",
+    "seed:testnet": "node dist/seed-payments.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },

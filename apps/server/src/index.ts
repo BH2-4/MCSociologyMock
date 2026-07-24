@@ -14,6 +14,7 @@ if (x402Mode !== "mock" && x402Mode !== "testnet") {
 }
 const x402 = x402Mode === "testnet" ? {
   facilitatorUrl: requiredEnvironment("X402_FACILITATOR_URL"),
+  facilitatorServiceToken: requiredEnvironment("FACILITATOR_SERVICE_TOKEN"),
   publicResourceBaseUrl: requiredEnvironment("PUBLIC_RESOURCE_BASE_URL"),
   merchantAddress: requiredEnvironment("MERCHANT_AGENT_ADDRESS") as `0x${string}`,
 } : undefined;
