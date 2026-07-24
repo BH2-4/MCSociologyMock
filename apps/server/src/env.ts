@@ -1,0 +1,6 @@
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const workspaceEnvironment = resolve(dirname(fileURLToPath(import.meta.url)), "../../../.env");
+if (existsSync(workspaceEnvironment)) process.loadEnvFile(workspaceEnvironment);

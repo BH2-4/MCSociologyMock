@@ -10,6 +10,7 @@
     "start": "node dist/index.js",
     "start:facilitator": "node dist/facilitator.js",
     "seed:testnet": "node dist/seed-payments.js",
+    "replay:mock": "node dist/replay-cli.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },

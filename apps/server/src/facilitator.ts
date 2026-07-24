@@ -1,3 +1,5 @@
+import "./env.js";
+
 import { InjectiveFacilitator } from "@injectivelabs/x402/facilitator";
 
 import { createFacilitatorApp } from "./facilitator-app.js";

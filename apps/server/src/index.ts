@@ -1,3 +1,5 @@
+import "./env.js";
+
 import { createApp } from "./app.js";
 import { PostgresRunStore } from "./db.js";
 
