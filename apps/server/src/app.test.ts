@@ -1,7 +1,7 @@
 import type { PairSummary, RunStore, StoredPair } from "./store.js";
 import { describe, expect, it } from "vitest";
 
-import { createApp, missingLlmProviderError } from "./app.js";
+import { createApp, missingLlmProviderError, missingTestnetReceiptError } from "./app.js";
 
 class TestStore implements RunStore {
   async migrate() {}
@@ -22,5 +22,13 @@ describe("server", () => {
       required: ["LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL"],
     });
     expect(missingLlmProviderError("fixed-threshold")).toBeNull();
+  });
+
+  it("blocks testnet experiment execution until verified seed receipts are loaded", () => {
+    expect(missingTestnetReceiptError("testnet")).toEqual({
+      error: "TESTNET_SEED_RECEIPTS_NOT_READY",
+      action: "Run pnpm seed:testnet, then restart the API to load the verified receipt fixture.",
+    });
+    expect(missingTestnetReceiptError("mock")).toBeNull();
   });
 });

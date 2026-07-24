@@ -7,6 +7,7 @@ import {
   runPairedExperimentWithDecisionAdapter,
   type DecisionRequest,
   type ExternalDecision,
+  type RecordedSeedPayment,
 } from "@agorasim/core";
 import { z } from "zod";
 
@@ -19,8 +20,8 @@ const runRequestSchema = z.object({
   decisionMode: z.enum(["evidence-blind", "fixed-threshold", "llm"]),
 }).strict();
 
-function pairIdFor(protocolSeed: string, decisionMode: string): string {
-  return `pair-${hashObject({ protocolSeed, decisionMode }).slice(0, 16)}`;
+function pairIdFor(protocolSeed: string, decisionMode: string, paymentFingerprint: string): string {
+  return `pair-${hashObject({ protocolSeed, decisionMode, paymentFingerprint }).slice(0, 16)}`;
 }
 
 function summaryFor(pairId: string, result: ReturnType<typeof runPairedExperiment>): PairSummary {
@@ -51,14 +52,28 @@ export function missingLlmProviderError(
   } : null;
 }
 
+export function missingTestnetReceiptError(
+  paymentMode: "mock" | "testnet",
+  recordedSeedPayments?: RecordedSeedPayment[],
+) {
+  return paymentMode === "testnet" && !recordedSeedPayments ? {
+    error: "TESTNET_SEED_RECEIPTS_NOT_READY",
+    action: "Run pnpm seed:testnet, then restart the API to load the verified receipt fixture.",
+  } : null;
+}
+
 export function createApp({
   store,
   x402,
   decisionAdapter,
+  paymentMode = "mock",
+  recordedSeedPayments,
 }: {
   store: RunStore;
   x402?: X402ResourceConfig;
   decisionAdapter?: RunnerDecisionAdapter;
+  paymentMode?: "mock" | "testnet";
+  recordedSeedPayments?: RecordedSeedPayment[];
 }) {
   const app = express();
   app.use(cors());
@@ -75,7 +90,15 @@ export function createApp({
       response.status(400).json({ error: "INVALID_RUN_REQUEST", issues: parsed.error.issues });
       return;
     }
-    const pairId = pairIdFor(parsed.data.protocolSeed, parsed.data.decisionMode);
+    const receiptError = missingTestnetReceiptError(paymentMode, recordedSeedPayments);
+    if (receiptError) {
+      response.status(503).json(receiptError);
+      return;
+    }
+    const paymentFingerprint = recordedSeedPayments
+      ? hashObject(recordedSeedPayments.map(({ branchId, logicalAgentId, txHash }) => ({ branchId, logicalAgentId, txHash })))
+      : "mock";
+    const pairId = pairIdFor(parsed.data.protocolSeed, parsed.data.decisionMode, paymentFingerprint);
     const existing = await store.getPair(pairId);
     if (existing) {
       response.status(200).json({ ...existing.summary, idempotentReplay: true });
@@ -90,8 +113,9 @@ export function createApp({
       ? await runPairedExperimentWithDecisionAdapter(
         parsed.data.protocolSeed,
         (observation) => decisionAdapter!.decideForRunner(observation),
+        { recordedSeedPayments },
       )
-      : runPairedExperiment(parsed.data.protocolSeed, parsed.data.decisionMode);
+      : runPairedExperiment(parsed.data.protocolSeed, parsed.data.decisionMode, { recordedSeedPayments });
     const stored: StoredPair = { summary: summaryFor(pairId, result), result };
     await store.savePair(stored);
     response.status(201).json(stored.summary);

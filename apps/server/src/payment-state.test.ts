@@ -15,6 +15,18 @@ describe("payment fulfillment failure paths", () => {
     expect(ledger.availableSupply).toBe(24);
     ledger.settlementFailed("idem-settle-fail");
     expect(ledger.availableSupply).toBe(24);
+
+    expect(ledger.reserve("idem-settle-fail", "payment-01").status).toBe("RESERVED");
+    expect(ledger.availableSupply).toBe(23);
+  });
+
+  it("binds one payment identity to exactly one idempotency key", () => {
+    const ledger = new FulfillmentLedger(24);
+    ledger.reserve("idem-01", "payment-01");
+
+    expect(() => ledger.reserve("idem-02", "payment-01")).toThrow("PAYMENT_ALREADY_BOUND_TO_IDEMPOTENCY_KEY");
+    expect(() => ledger.reserve("idem-01", "payment-02")).toThrow("IDEMPOTENCY_KEY_REUSED_FOR_DIFFERENT_PAYMENT");
+    expect(ledger.availableSupply).toBe(23);
   });
 
   it("requires a confirmed compensating refund after post-settlement fulfillment failure", () => {

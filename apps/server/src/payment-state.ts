@@ -19,6 +19,7 @@ export interface FulfillmentRecord {
 
 export class FulfillmentLedger {
   readonly #records = new Map<string, FulfillmentRecord>();
+  readonly #idempotencyByPayment = new Map<string, string>();
   #availableSupply: number;
 
   constructor(initialSupply: number) {
@@ -31,18 +32,30 @@ export class FulfillmentLedger {
 
   reserve(idempotencyKey: string, paymentId: string): FulfillmentRecord {
     const existing = this.#records.get(idempotencyKey);
-    if (existing) return existing;
+    if (existing) {
+      if (existing.paymentId !== paymentId) throw new Error("IDEMPOTENCY_KEY_REUSED_FOR_DIFFERENT_PAYMENT");
+      if (existing.status === "SETTLE_FAILED") {
+        if (this.#availableSupply < 1) throw new Error("OUT_OF_STOCK");
+        this.#availableSupply -= 1;
+        existing.status = "RESERVED";
+        existing.inventoryReserved = true;
+      }
+      return existing;
+    }
+    const boundKey = this.#idempotencyByPayment.get(paymentId);
+    if (boundKey && boundKey !== idempotencyKey) throw new Error("PAYMENT_ALREADY_BOUND_TO_IDEMPOTENCY_KEY");
     if (this.#availableSupply < 1) throw new Error("OUT_OF_STOCK");
     this.#availableSupply -= 1;
     const record: FulfillmentRecord = {
       idempotencyKey,
-      fulfillmentId: `fulfillment:${idempotencyKey}`,
+      fulfillmentId: `fulfillment:${hashObject({ idempotencyKey, paymentId }).slice(0, 20)}`,
       paymentId,
       status: "RESERVED",
       inventoryReserved: true,
       paidResponseReleased: false,
     };
     this.#records.set(idempotencyKey, record);
+    this.#idempotencyByPayment.set(paymentId, idempotencyKey);
     return record;
   }
 
@@ -58,7 +71,7 @@ export class FulfillmentLedger {
 
   settled(idempotencyKey: string): FulfillmentRecord {
     const record = this.require(idempotencyKey);
-    if (record.status === "SETTLED") return record;
+    if (record.status === "SETTLED" || record.status === "FULFILLED") return record;
     if (record.status !== "RESERVED") throw new Error("INVALID_SETTLED_TRANSITION");
     record.status = "SETTLED";
     return record;
@@ -105,3 +118,4 @@ export class FulfillmentLedger {
     this.#availableSupply += 1;
   }
 }
+import { hashObject } from "@agorasim/core";

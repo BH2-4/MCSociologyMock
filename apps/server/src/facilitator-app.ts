@@ -2,7 +2,7 @@ import type { SettleResponse, VerifyRequest, VerifyResponse } from "@injectivela
 import { normalizeFacilitatorRequest } from "@injectivelabs/x402/protocol";
 import express from "express";
 
-import { INJECTIVE_TESTNET_NETWORK, INJECTIVE_TESTNET_USDC } from "./x402-constants.js";
+import { ECO_CUP_AMOUNT, INJECTIVE_TESTNET_NETWORK, INJECTIVE_TESTNET_USDC } from "./x402-constants.js";
 
 export interface FacilitatorOperations {
   verify(request: VerifyRequest): Promise<VerifyResponse>;
@@ -13,6 +13,7 @@ export interface FacilitatorAppConfig {
   operations: FacilitatorOperations;
   serviceToken: string;
   allowedIps: string[];
+  merchantAddress: `0x${string}`;
 }
 
 function normalizedIp(value: string | undefined): string {
@@ -29,11 +30,16 @@ function replayKey(request: VerifyRequest): string {
   ].join(":");
 }
 
-export function validateFacilitatorBoundary(request: VerifyRequest): void {
+export function validateFacilitatorBoundary(request: VerifyRequest, merchantAddress: `0x${string}`): void {
   const requirement = request.paymentRequirements;
+  const authorization = request.paymentPayload.payload.authorization;
   if (requirement.scheme !== "exact") throw new Error("SCHEME_NOT_ALLOWED");
   if (requirement.network !== INJECTIVE_TESTNET_NETWORK) throw new Error("NETWORK_NOT_ALLOWED");
   if (requirement.asset.toLowerCase() !== INJECTIVE_TESTNET_USDC.toLowerCase()) throw new Error("ASSET_NOT_ALLOWED");
+  if (requirement.payTo.toLowerCase() !== merchantAddress.toLowerCase()) throw new Error("PAYEE_NOT_ALLOWED");
+  if (requirement.amount !== ECO_CUP_AMOUNT) throw new Error("AMOUNT_NOT_ALLOWED");
+  if (authorization.to.toLowerCase() !== requirement.payTo.toLowerCase()) throw new Error("AUTHORIZATION_PAYEE_MISMATCH");
+  if (authorization.value !== requirement.amount) throw new Error("AUTHORIZATION_AMOUNT_MISMATCH");
 }
 
 export class SettlementReplayGate {
@@ -82,7 +88,7 @@ export function createFacilitatorApp(config: FacilitatorAppConfig) {
   app.post("/verify", async (request, response) => {
     try {
       const normalized = normalizeFacilitatorRequest(request.body);
-      validateFacilitatorBoundary(normalized.inner);
+      validateFacilitatorBoundary(normalized.inner, config.merchantAddress);
       response.json(await config.operations.verify(normalized.inner));
     } catch {
       response.status(400).json({ error: "INVALID_X402_REQUEST" });
@@ -92,7 +98,7 @@ export function createFacilitatorApp(config: FacilitatorAppConfig) {
   app.post("/settle", async (request, response) => {
     try {
       const normalized = normalizeFacilitatorRequest(request.body);
-      validateFacilitatorBoundary(normalized.inner);
+      validateFacilitatorBoundary(normalized.inner, config.merchantAddress);
       const result = await replayGate.settle(normalized.inner, () => config.operations.settle(normalized.inner));
       response.json(result);
     } catch {

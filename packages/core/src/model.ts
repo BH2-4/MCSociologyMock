@@ -147,9 +147,23 @@ export interface PaymentRecord {
   productId: string;
   amount: number;
   state: "FULFILLED";
-  mockReceiptId: string;
-  txHash: null;
+  source: "MOCK" | "INJECTIVE_TESTNET";
+  mockReceiptId: string | null;
+  txHash: `0x${string}` | null;
   tick: number;
+}
+
+export interface RecordedSeedPayment {
+  branchId: BranchId;
+  logicalAgentId: string;
+  payerAddress: `0x${string}`;
+  fulfillmentId: string;
+  txHash: `0x${string}`;
+  evidence: Evidence;
+}
+
+export interface RunOptions {
+  recordedSeedPayments?: RecordedSeedPayment[];
 }
 
 export interface ExperimentEvent {
@@ -280,6 +294,8 @@ export interface PairedExperimentResult {
     claimParity: boolean;
     controlEvidenceLeakCount: number;
     treatmentEvidenceOmissionCount: number;
+    walletIsolation: boolean;
+    seedPaymentParity: boolean;
     balancesConserved: boolean;
     suppliesConserved: boolean;
   };

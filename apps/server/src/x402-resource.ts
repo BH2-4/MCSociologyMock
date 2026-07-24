@@ -1,4 +1,5 @@
 import { injectivePaymentMiddleware } from "@injectivelabs/x402/middleware";
+import { decodePaymentSignatureHeader } from "@injectivelabs/x402/client";
 import type { Express, Request as ExpressRequest } from "express";
 import { hashObject } from "@agorasim/core";
 
@@ -8,6 +9,7 @@ import {
   INJECTIVE_TESTNET_NETWORK,
   INJECTIVE_TESTNET_USDC,
 } from "./x402-constants.js";
+import { FulfillmentLedger } from "./payment-state.js";
 
 export interface X402ResourceConfig {
   facilitatorUrl: string;
@@ -21,6 +23,7 @@ interface PaidRequest extends ExpressRequest {
 }
 
 export function registerX402Resource(app: Express, config: X402ResourceConfig): void {
+  const fulfillmentLedger = new FulfillmentLedger(24);
   installFacilitatorAuthentication(config.facilitatorUrl, config.facilitatorServiceToken);
   app.use(injectivePaymentMiddleware({
     [`POST ${ECO_CUP_ROUTE}`]: {
@@ -46,13 +49,62 @@ export function registerX402Resource(app: Express, config: X402ResourceConfig): 
       response.status(400).json({ error: "IDEMPOTENCY_KEY_REQUIRED" });
       return;
     }
+    const paymentHeader = request.header("PAYMENT-SIGNATURE") ?? request.header("X-PAYMENT");
+    if (!paymentHeader) {
+      response.status(400).json({ error: "PAYMENT_SIGNATURE_REQUIRED" });
+      return;
+    }
+    const authorization = decodePaymentSignatureHeader(paymentHeader).payload.authorization;
+    const paymentId = `payment:${hashObject({
+      network: INJECTIVE_TESTNET_NETWORK,
+      asset: INJECTIVE_TESTNET_USDC.toLowerCase(),
+      payer: authorization.from.toLowerCase(),
+      nonce: authorization.nonce.toLowerCase(),
+    })}`;
+    let fulfillment;
+    try {
+      fulfillment = fulfillmentLedger.reserve(idempotencyKey, paymentId);
+    } catch (error) {
+      response.status(409).json({ error: error instanceof Error ? error.message : "FULFILLMENT_RESERVATION_FAILED" });
+      return;
+    }
+    response.once("finish", () => finalizeFulfillmentFromHttpOutcome(
+      fulfillmentLedger,
+      idempotencyKey,
+      response.statusCode,
+      response.getHeader("PAYMENT-RESPONSE"),
+    ));
     response.status(200).json({
       offerId: "offer_eco_cup",
-      fulfillmentId: `fulfillment:${hashObject({ idempotencyKey, payer: request.x402?.payer }).slice(0, 20)}`,
+      fulfillmentId: fulfillment.fulfillmentId,
       status: "FULFILLED_ON_SETTLEMENT_RELEASE",
       disclaimer: "Test asset with no real value.",
     });
   });
+}
+
+export function finalizeFulfillmentFromHttpOutcome(
+  ledger: FulfillmentLedger,
+  idempotencyKey: string,
+  statusCode: number,
+  paymentResponseHeader: number | string | string[] | undefined,
+): void {
+  if (statusCode >= 200 && statusCode < 300 && successfulPaymentResponse(paymentResponseHeader)) {
+    ledger.settled(idempotencyKey);
+    ledger.fulfilled(idempotencyKey);
+    return;
+  }
+  ledger.settlementFailed(idempotencyKey);
+}
+
+function successfulPaymentResponse(header: number | string | string[] | undefined): boolean {
+  if (typeof header !== "string") return false;
+  try {
+    const parsed = JSON.parse(Buffer.from(header, "base64").toString("utf8")) as { success?: unknown };
+    return parsed.success === true;
+  } catch {
+    return false;
+  }
 }
 
 let authenticatedFacilitator: { baseUrl: string; token: string } | null = null;

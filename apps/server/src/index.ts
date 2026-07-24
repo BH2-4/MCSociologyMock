@@ -1,8 +1,12 @@
 import "./env.js";
 
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { createApp } from "./app.js";
 import { PostgresRunStore } from "./db.js";
 import { OpenAiCompatibleDecisionAdapter } from "./llm-adapter.js";
+import { loadSeedReceiptFixture } from "./seed-receipt-fixture.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is required; no runtime database fallback is available");
@@ -31,8 +35,18 @@ const x402 = x402Mode === "testnet" ? {
   publicResourceBaseUrl: requiredEnvironment("PUBLIC_RESOURCE_BASE_URL"),
   merchantAddress: requiredEnvironment("MERCHANT_AGENT_ADDRESS") as `0x${string}`,
 } : undefined;
+const receiptFixturePath = resolve(process.env.TESTNET_RECEIPT_FIXTURE_PATH ?? "fixtures/testnet-seed-receipts.json");
+const recordedSeedPayments = x402Mode === "testnet" && existsSync(receiptFixturePath)
+  ? await loadSeedReceiptFixture(receiptFixturePath, x402!.merchantAddress)
+  : undefined;
 
-const server = createApp({ store, x402, decisionAdapter }).listen(port, (error?: Error) => {
+const server = createApp({
+  store,
+  x402,
+  decisionAdapter,
+  paymentMode: x402Mode,
+  recordedSeedPayments,
+}).listen(port, (error?: Error) => {
   if (error) throw error;
   console.log(`AgoraSim API listening on http://localhost:${port}`);
 });

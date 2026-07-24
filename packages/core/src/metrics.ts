@@ -62,6 +62,25 @@ export function buildValidation(
   const balanceConserved = (run: BranchRun) =>
     run.wallets.reduce((sum, wallet) => sum + wallet.balance, 0) + run.merchantBalance === run.initialTotalBalance;
   const supplyConserved = (run: BranchRun) => run.remainingSupply + run.payments.length === run.initialSupply;
+  const controlAddresses = new Set(result.control.wallets.map((wallet) => wallet.address.toLowerCase()));
+  const walletIsolation = result.treatment.wallets.every((wallet) => !controlAddresses.has(wallet.address.toLowerCase()))
+    && result.control.agents.every((agent) => {
+      const controlWallet = result.control.wallets.find((wallet) => wallet.logicalAgentId === agent.id);
+      const treatmentWallet = result.treatment.wallets.find((wallet) => wallet.logicalAgentId === agent.id);
+      return controlWallet?.initialBalance === treatmentWallet?.initialBalance;
+    });
+  const seedPaymentKey = (run: BranchRun) => run.agents
+    .filter((agent) => agent.isSeed)
+    .map((agent) => run.payments.find((payment) => payment.payerAgentId === agent.id))
+    .map((payment) => payment ? {
+      payerAgentId: payment.payerAgentId,
+      merchantId: payment.merchantId,
+      productId: payment.productId,
+      amount: payment.amount,
+      state: payment.state,
+      source: payment.source,
+      tick: payment.tick,
+    } : null);
 
   return {
     evidenceBlindZero: result.control.decisionMode === "evidence-blind" ? result.pairedEffect === 0 : null,
@@ -69,6 +88,9 @@ export function buildValidation(
     claimParity: JSON.stringify(claimKey(result.control)) === JSON.stringify(claimKey(result.treatment)),
     controlEvidenceLeakCount,
     treatmentEvidenceOmissionCount: treatmentObservationCount - treatmentEvidenceCount,
+    walletIsolation,
+    seedPaymentParity: JSON.stringify(seedPaymentKey(result.control)) === JSON.stringify(seedPaymentKey(result.treatment))
+      && seedPaymentKey(result.control).every(Boolean),
     balancesConserved: balanceConserved(result.control) && balanceConserved(result.treatment),
     suppliesConserved: supplyConserved(result.control) && supplyConserved(result.treatment),
   };

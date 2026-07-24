@@ -50,7 +50,17 @@ const success: SettleResponse = {
 
 describe("facilitator boundary and replay gate", () => {
   it("rejects mainnet before facilitator operations", () => {
-    expect(() => validateFacilitatorBoundary(request("eip155:1776"))).toThrow("NETWORK_NOT_ALLOWED");
+    expect(() => validateFacilitatorBoundary(request("eip155:1776"), merchant)).toThrow("NETWORK_NOT_ALLOWED");
+  });
+
+  it("rejects a noncanonical amount or merchant before facilitator operations", () => {
+    const wrongAmount = request();
+    wrongAmount.paymentRequirements.amount = "300001";
+    wrongAmount.paymentPayload.accepted.amount = "300001";
+    wrongAmount.paymentPayload.payload.authorization.value = "300001";
+    expect(() => validateFacilitatorBoundary(wrongAmount, merchant)).toThrow("AMOUNT_NOT_ALLOWED");
+
+    expect(() => validateFacilitatorBoundary(request(), payer)).toThrow("PAYEE_NOT_ALLOWED");
   });
 
   it("coalesces concurrent settlement and caches only success", async () => {

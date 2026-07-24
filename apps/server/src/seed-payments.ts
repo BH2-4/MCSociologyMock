@@ -6,13 +6,18 @@ import { dirname, resolve } from "node:path";
 
 import { createPayment } from "@injectivelabs/x402/client";
 import { injectiveEvmTestnet } from "@injectivelabs/x402/networks";
-import type { Evidence } from "@agorasim/core";
 import { createPublicClient, http, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
 import { reconcileTransfer } from "./chain-reconciler.js";
 import { verifyPurchaseEvidence } from "./evidence-verifier.js";
 import { executeX402Payment } from "./payment-adapter.js";
+import {
+  parsePartialSeedReceiptFixture,
+  parseSeedReceiptFixture,
+  type SeedProof,
+  type SeedReceiptFixture,
+} from "./seed-receipt-fixture.js";
 import { FixedWalletPolicy } from "./wallet-policy.js";
 import {
   BLOCKSCOUT_TESTNET_URL,
@@ -22,25 +27,6 @@ import {
 } from "./x402-constants.js";
 
 const fixturePath = resolve(process.env.TESTNET_RECEIPT_FIXTURE_PATH ?? "fixtures/testnet-seed-receipts.json");
-interface SeedProof {
-  branch: "control" | "treatment";
-  logicalAgentId: string;
-  payer: `0x${string}`;
-  fulfillmentId: string;
-  transaction: `0x${string}`;
-  blockscoutUrl: string;
-  evidence: Evidence;
-}
-
-interface SeedFixture {
-  schemaVersion: 1;
-  network: "eip155:1439";
-  asset: typeof INJECTIVE_TESTNET_USDC;
-  amount: typeof ECO_CUP_AMOUNT;
-  generatedAt: string;
-  payments: SeedProof[];
-}
-
 const resourceUrl = requiredEnvironment("PUBLIC_RESOURCE_BASE_URL").replace(/\/$/, "") + "/x402/offers/eco-cup";
 const merchantAddress = requiredEnvironment("MERCHANT_AGENT_ADDRESS") as `0x${string}`;
 const rpcUrl = process.env.INJECTIVE_EVM_RPC_URL ?? "https://k8s.testnet.json-rpc.injective.network";
@@ -56,17 +42,23 @@ const addresses = seeds.map((seed) => privateKeyToAccount(resolveEnvironmentKey(
 if (new Set(addresses).size !== seeds.length) throw new Error("Seed branch wallets must use four unique EVM addresses");
 if (addresses.includes(merchantAddress.toLowerCase())) throw new Error("Merchant address must not be reused as a seed payer");
 
-const fixture: SeedFixture = existsSync(fixturePath)
-  ? JSON.parse(await readFile(fixturePath, "utf8")) as SeedFixture
+const fixture: SeedReceiptFixture = existsSync(fixturePath)
+  ? parsePartialSeedReceiptFixture(JSON.parse(await readFile(fixturePath, "utf8")) as unknown, merchantAddress)
   : {
       schemaVersion: 1,
       network: "eip155:1439",
       asset: INJECTIVE_TESTNET_USDC,
       amount: ECO_CUP_AMOUNT,
+      merchantAddress,
       generatedAt: new Date().toISOString(),
       payments: [],
     };
-if (fixture.network !== "eip155:1439" || fixture.asset.toLowerCase() !== INJECTIVE_TESTNET_USDC.toLowerCase() || fixture.amount !== ECO_CUP_AMOUNT) {
+if (
+  fixture.network !== "eip155:1439"
+  || fixture.asset.toLowerCase() !== INJECTIVE_TESTNET_USDC.toLowerCase()
+  || fixture.amount !== ECO_CUP_AMOUNT
+  || fixture.merchantAddress.toLowerCase() !== merchantAddress.toLowerCase()
+) {
   throw new Error("Existing seed receipt fixture does not match the fixed P0 payment contract");
 }
 
@@ -108,6 +100,8 @@ for (const seed of seeds) {
     asset: INJECTIVE_TESTNET_USDC,
     amount: ECO_CUP_AMOUNT,
   });
+  if (!receipt.success) throw new Error("Confirmed seed transaction produced an unsuccessful receipt");
+  const fulfilledAt = new Date().toISOString();
   const evidence = verifyPurchaseEvidence({
     paymentId: `seed:${seed.branch}:${seed.logicalAgentId}`,
     payer: account.address,
@@ -117,10 +111,13 @@ for (const seed of seeds) {
     merchantAddress,
     amount: ECO_CUP_AMOUNT,
     requestedAt,
-    fulfilledAt: new Date().toISOString(),
+    fulfilledAt,
     fulfilled: true,
     verifiedAtTick: 1,
   }, receipt);
+  if (evidence.status !== "VERIFIED" || evidence.source !== "INJECTIVE_TESTNET" || !evidence.txHash || !evidence.blockscoutUrl) {
+    throw new Error("Verified testnet seed payment did not produce persistable Evidence");
+  }
   fixture.payments.push({
     branch: seed.branch,
     logicalAgentId: seed.logicalAgentId,
@@ -128,10 +125,15 @@ for (const seed of seeds) {
     fulfillmentId: fulfillment.fulfillmentId,
     transaction: receipt.transaction,
     blockscoutUrl: `${BLOCKSCOUT_TESTNET_URL}/tx/${receipt.transaction}`,
-    evidence,
+    requestedAt,
+    fulfilledAt,
+    receipt: receipt as SeedProof["receipt"],
+    evidence: evidence as SeedProof["evidence"],
   });
   await persistFixture();
 }
+
+parseSeedReceiptFixture(fixture, merchantAddress);
 
 console.log(JSON.stringify({
   fixturePath,

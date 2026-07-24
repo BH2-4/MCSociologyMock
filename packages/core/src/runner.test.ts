@@ -6,6 +6,7 @@ import {
   runPairedExperimentWithDecisionAdapter,
   type DecisionRequest,
   type ExternalDecision,
+  type RecordedSeedPayment,
 } from "./index.js";
 
 function recordedDecision(request: DecisionRequest): ExternalDecision {
@@ -27,6 +28,41 @@ function recordedDecision(request: DecisionRequest): ExternalDecision {
     schemaFailed: false,
     usage: { promptTokens: 80, completionTokens: 30 },
   };
+}
+
+function recordedSeedPayments(): RecordedSeedPayment[] {
+  return ([
+    ["control", "consumer-01"],
+    ["control", "consumer-13"],
+    ["treatment", "consumer-01"],
+    ["treatment", "consumer-13"],
+  ] as const).map(([branchId, logicalAgentId], index) => {
+    const payerAddress = `0x${String(index + 1).repeat(40)}` as `0x${string}`;
+    const txHash = `0x${String(index + 1).repeat(64)}` as `0x${string}`;
+    const paymentId = `seed:${branchId}:${logicalAgentId}`;
+    return {
+      branchId,
+      logicalAgentId,
+      payerAddress,
+      fulfillmentId: `fulfillment:${branchId}:${logicalAgentId}`,
+      txHash,
+      evidence: {
+        id: `evidence:${paymentId}`,
+        subjectAgentId: logicalAgentId,
+        paymentId,
+        productId: "offer_eco_cup",
+        merchantId: "merchant-01",
+        amount: "300000",
+        status: "VERIFIED",
+        proofScope: ["PURCHASE_OCCURRED", "AMOUNT", "MERCHANT", "TIME"],
+        doesNotProve: ["PRODUCT_QUALITY", "ACTUAL_USAGE", "REVIEW_TRUTH", "RECOMMENDATION_MOTIVE"],
+        verifiedAtTick: 1,
+        txHash,
+        blockscoutUrl: `https://testnet.blockscout.injective.network/tx/${txHash}`,
+        source: "INJECTIVE_TESTNET",
+      },
+    };
+  });
 }
 
 describe("paired experiment runner", () => {
@@ -79,6 +115,8 @@ describe("paired experiment runner", () => {
     expect([...controlAddresses].every((address) => !treatmentAddresses.has(address))).toBe(true);
     expect(result.validation.balancesConserved).toBe(true);
     expect(result.validation.suppliesConserved).toBe(true);
+    expect(result.validation.walletIsolation).toBe(true);
+    expect(result.validation.seedPaymentParity).toBe(true);
   });
 
   it("lets a recorded asynchronous decision adapter drive the same event engine", async () => {
@@ -103,5 +141,47 @@ describe("paired experiment runner", () => {
     expect(result.control.events.some((event) => event.type === "ACTION_REJECTED")).toBe(true);
     expect(result.control.decisions.every((decision) => decision.action === "IDLE")).toBe(true);
     expect(JSON.stringify(result.control.decisions)).not.toContain("evidence-not-visible");
+  });
+
+  it("replays verified testnet seed receipts inside the paired experiment", () => {
+    const recordings = recordedSeedPayments();
+    const result = runPairedExperiment("testnet-recording", "fixed-threshold", {
+      recordedSeedPayments: recordings,
+    });
+
+    for (const recording of recordings) {
+      const branch = result[recording.branchId];
+      expect(branch.wallets.find((wallet) => wallet.logicalAgentId === recording.logicalAgentId)?.address)
+        .toBe(recording.payerAddress);
+      expect(branch.payments.find((payment) => payment.payerAgentId === recording.logicalAgentId)).toMatchObject({
+        source: "INJECTIVE_TESTNET",
+        txHash: recording.txHash,
+        mockReceiptId: null,
+      });
+      expect(branch.evidence.find((evidence) => evidence.subjectAgentId === recording.logicalAgentId)?.blockscoutUrl)
+        .toContain(recording.txHash);
+    }
+    expect(result.treatment.payments.some((payment) => payment.source === "MOCK")).toBe(true);
+    expect(result.validation.controlEvidenceLeakCount).toBe(0);
+  });
+
+  it("blocks a recorded seed payer that reuses another branch wallet address", () => {
+    const recordings = recordedSeedPayments();
+    recordings[0]!.payerAddress = recordings[2]!.payerAddress;
+
+    expect(() => runPairedExperiment("wallet-reuse", "fixed-threshold", {
+      recordedSeedPayments: recordings,
+    })).toThrow("RECORDED_SEED_PAYER_REUSED");
+  });
+
+  it("blocks a recorded payer that collides with a deterministic non-seed wallet", () => {
+    const recordings = recordedSeedPayments();
+    const deterministicRun = runPairedExperiment("wallet-collision", "fixed-threshold");
+    recordings[0]!.payerAddress = deterministicRun.control.wallets
+      .find((wallet) => wallet.logicalAgentId === "consumer-02")!.address;
+
+    expect(() => runPairedExperiment("wallet-collision", "fixed-threshold", {
+      recordedSeedPayments: recordings,
+    })).toThrow("BRANCH_WALLET_ADDRESS_REUSED");
   });
 });
