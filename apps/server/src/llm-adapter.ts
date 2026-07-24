@@ -1,4 +1,4 @@
-import { hashObject } from "@agorasim/core";
+import { hashObject, type DecisionRequest, type ExternalDecision } from "@agorasim/core";
 import { z } from "zod";
 
 const actions = ["INSPECT_EVIDENCE", "CHAT", "POST", "BUY", "IDLE"] as const;
@@ -32,22 +32,7 @@ export const llmDecisionSchema = z.object({
 
 export type LlmDecision = z.infer<typeof llmDecisionSchema>;
 
-export interface LlmObservation {
-  agent: {
-    id: string;
-    persona: string;
-    budgetMicros: number;
-  };
-  tick: number;
-  claims: Array<{ id: string; body: string; authorId: string }>;
-  evidence: Array<{
-    id: string;
-    claimId: string;
-    proofScope: readonly string[];
-    doesNotProve: readonly string[];
-  }>;
-  product: { id: string; amount: string; assetSymbol: string };
-}
+export type LlmObservation = DecisionRequest;
 
 export interface LlmDecisionResult {
   decision: LlmDecision;
@@ -55,6 +40,7 @@ export interface LlmDecisionResult {
   schemaFailed: boolean;
   provider: "openai-compatible";
   model: string;
+  requestHash: string;
   responseHash: string | null;
   usage: { promptTokens: number; completionTokens: number } | null;
 }
@@ -133,29 +119,31 @@ export class OpenAiCompatibleDecisionAdapter {
 
   async decide(observation: LlmObservation): Promise<LlmDecisionResult> {
     let lastResponseHash: string | null = null;
+    const requestBody = {
+      model: this.#config.model,
+      temperature: this.#config.temperature ?? 0,
+      max_tokens: this.#config.maxTokens ?? 500,
+      response_format: { type: "json_schema", json_schema: responseJsonSchema },
+      messages: [
+        {
+          role: "system",
+          content: "Choose one allowed action from visible information. Return only the JSON schema. Report a short decision summary and reason codes; do not provide hidden reasoning or chain-of-thought.",
+        },
+        { role: "user", content: JSON.stringify(observation) },
+      ],
+    };
+    const requestHash = hashObject(requestBody);
     for (let attempt = 1; attempt <= 3; attempt += 1) {
+      const response = await this.#fetch(`${this.#config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.#config.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+      if (!response.ok) throw new Error(`LLM request failed with ${response.status}`);
       try {
-        const response = await this.#fetch(`${this.#config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${this.#config.apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: this.#config.model,
-            temperature: this.#config.temperature ?? 0,
-            max_tokens: this.#config.maxTokens ?? 500,
-            response_format: { type: "json_schema", json_schema: responseJsonSchema },
-            messages: [
-              {
-                role: "system",
-                content: "Choose one allowed action from visible information. Return only the JSON schema. Report a short decision summary and reason codes; do not provide hidden reasoning or chain-of-thought.",
-              },
-              { role: "user", content: JSON.stringify(observation) },
-            ],
-          }),
-        });
-        if (!response.ok) throw new Error(`LLM request failed with ${response.status}`);
         const body = await response.json() as {
           choices?: Array<{ message?: { content?: string } }>;
           usage?: { prompt_tokens?: number; completion_tokens?: number };
@@ -171,6 +159,7 @@ export class OpenAiCompatibleDecisionAdapter {
           schemaFailed: false,
           provider: "openai-compatible",
           model: this.#config.model,
+          requestHash,
           responseHash: lastResponseHash,
           usage: body.usage ? {
             promptTokens: body.usage.prompt_tokens ?? 0,
@@ -187,8 +176,30 @@ export class OpenAiCompatibleDecisionAdapter {
       schemaFailed: true,
       provider: "openai-compatible",
       model: this.#config.model,
+      requestHash,
       responseHash: lastResponseHash,
       usage: null,
+    };
+  }
+
+  async decideForRunner(observation: DecisionRequest): Promise<ExternalDecision> {
+    const result = await this.decide(observation);
+    return {
+      action: result.decision.action,
+      targetIds: result.decision.target_ids,
+      credibilityAssessment: result.decision.decision_summary.credibility_assessment,
+      observedClaimIds: result.decision.decision_summary.observed_claim_ids,
+      observedEvidenceIds: result.decision.decision_summary.observed_evidence_ids,
+      reasonCodes: result.decision.decision_summary.reason_codes,
+      expectedOutcome: result.decision.decision_summary.expected_outcome,
+      confidence: result.decision.decision_summary.confidence,
+      provider: result.provider,
+      model: result.model,
+      requestHash: result.requestHash,
+      responseHash: result.responseHash,
+      attempts: result.attempts,
+      schemaFailed: result.schemaFailed,
+      usage: result.usage,
     };
   }
 }

@@ -25,11 +25,11 @@ Status date: 2026-07-25. `PASS` means reproducible code/test or inspected UI evi
 | Compare shows paired difference, funnel, baselines and failure checks | PASS | UI and Playwright main-flow test |
 | Replay calls no LLM, signer, or facilitator and rebuilds results | PASS | `replay.test.ts`, `pnpm replay:mock`, Replay API |
 | Export includes protocol/config/events/metrics/payment index but no secrets/thought chain | PASS | `export.ts` and redaction test |
-| Critical automated tests and one end-to-end Demo test | PASS | 36 unit/contract tests currently expected plus one scenario across desktop/mobile Playwright projects |
+| Critical automated tests and one end-to-end Demo test | PASS | 41 unit/contract tests currently expected plus one scenario across desktop/mobile Playwright projects |
 
 ## External blockers
 
 1. Docker Desktop's credential helper stalled while pulling `postgres:16-alpine`; a temporary credential-free Docker config bypassed it, but Docker Hub then returned `EOF` for the public manifest. PostgreSQL migration/save/read was therefore not integration-tested in this environment. No database fallback was added.
-2. No LLM endpoint/key/model is configured, so only recorded fixtures validate the OpenAI-compatible structured output path.
+2. No LLM endpoint/key/model is configured. The Adapter now drives the paired Runner and a recorded OpenAI-compatible Fixture validates the complete structured action/event/payment path; a paid online model run remains unverified.
 3. No merchant address, facilitator Gas key/service token, or four unique funded seed wallet key refs are configured. Each seed wallet needs at least 0.30 testnet USDC (0.35 recommended); the facilitator needs testnet INJ for four settlements.
 4. Because item 3 is unresolved, `fixtures/testnet-seed-receipts.json` does not exist and there are no Blockscout transaction links to report.

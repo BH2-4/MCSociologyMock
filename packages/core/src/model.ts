@@ -2,7 +2,8 @@ export const ACTIONS = ["INSPECT_EVIDENCE", "CHAT", "POST", "BUY", "IDLE"] as co
 export type AgentAction = (typeof ACTIONS)[number];
 
 export type BranchId = "control" | "treatment";
-export type DecisionMode = "evidence-blind" | "fixed-threshold";
+export type DecisionMode = "evidence-blind" | "fixed-threshold" | "llm";
+export type DeterministicDecisionMode = Exclude<DecisionMode, "llm">;
 export type ReceiptVisibility = "HIDDEN" | "VERIFIED_SUMMARY";
 
 export const EVENT_TYPES = [
@@ -16,6 +17,7 @@ export const EVENT_TYPES = [
   "EVIDENCE_INSPECTED",
   "CREDIBILITY_ASSESSED",
   "ACTION_PROPOSED",
+  "ACTION_REJECTED",
   "CHAT_SENT",
   "POST_PUBLISHED",
   "X402_PAYMENT_REQUIRED",
@@ -176,6 +178,53 @@ export interface DecisionRecord {
   observedEvidenceIds: string[];
   reasonCodes: string[];
   causedByEventId: string;
+  decisionSource?: "deterministic" | "llm";
+  expectedOutcome?: string;
+  confidence?: number;
+  provider?: "openai-compatible";
+  model?: string;
+  requestHash?: string;
+  responseHash?: string | null;
+  attempts?: number;
+  schemaFailed?: boolean;
+  usage?: { promptTokens: number; completionTokens: number } | null;
+}
+
+export interface DecisionRequest {
+  agent: {
+    id: string;
+    persona: string;
+    budgetMicros: number;
+  };
+  tick: number;
+  claims: Array<{ id: string; body: string; authorId: string }>;
+  evidence: Array<{
+    id: string;
+    claimId: string;
+    proofScope: readonly string[];
+    doesNotProve: readonly string[];
+  }>;
+  product: { id: string; amount: string; assetSymbol: string };
+  allowedChatTargetIds: string[];
+  inspectedEvidenceIds: string[];
+}
+
+export interface ExternalDecision {
+  action: AgentAction;
+  targetIds: string[];
+  credibilityAssessment: number;
+  observedClaimIds: string[];
+  observedEvidenceIds: string[];
+  reasonCodes: string[];
+  expectedOutcome: string;
+  confidence: number;
+  provider: "openai-compatible";
+  model: string;
+  requestHash: string;
+  responseHash: string | null;
+  attempts: number;
+  schemaFailed: boolean;
+  usage: { promptTokens: number; completionTokens: number } | null;
 }
 
 export interface BranchMetrics {

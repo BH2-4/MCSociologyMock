@@ -2,6 +2,7 @@ import "./env.js";
 
 import { createApp } from "./app.js";
 import { PostgresRunStore } from "./db.js";
+import { OpenAiCompatibleDecisionAdapter } from "./llm-adapter.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is required; no runtime database fallback is available");
@@ -9,6 +10,16 @@ if (!databaseUrl) throw new Error("DATABASE_URL is required; no runtime database
 const port = Number(process.env.SERVER_PORT ?? 4100);
 const store = new PostgresRunStore(databaseUrl);
 await store.migrate();
+
+const llmValues = [process.env.LLM_BASE_URL, process.env.LLM_API_KEY, process.env.LLM_MODEL];
+if (llmValues.some(Boolean) && !llmValues.every(Boolean)) {
+  throw new Error("LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL must be configured together");
+}
+const decisionAdapter = llmValues.every(Boolean) ? new OpenAiCompatibleDecisionAdapter({
+  baseUrl: process.env.LLM_BASE_URL!,
+  apiKey: process.env.LLM_API_KEY!,
+  model: process.env.LLM_MODEL!,
+}) : undefined;
 
 const x402Mode = process.env.X402_MODE ?? "mock";
 if (x402Mode !== "mock" && x402Mode !== "testnet") {
@@ -21,7 +32,7 @@ const x402 = x402Mode === "testnet" ? {
   merchantAddress: requiredEnvironment("MERCHANT_AGENT_ADDRESS") as `0x${string}`,
 } : undefined;
 
-const server = createApp({ store, x402 }).listen(port, (error?: Error) => {
+const server = createApp({ store, x402, decisionAdapter }).listen(port, (error?: Error) => {
   if (error) throw error;
   console.log(`AgoraSim API listening on http://localhost:${port}`);
 });

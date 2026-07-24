@@ -1,7 +1,7 @@
 import type { PairSummary, RunStore, StoredPair } from "./store.js";
 import { describe, expect, it } from "vitest";
 
-import { createApp } from "./app.js";
+import { createApp, missingLlmProviderError } from "./app.js";
 
 class TestStore implements RunStore {
   async migrate() {}
@@ -14,5 +14,13 @@ class TestStore implements RunStore {
 describe("server", () => {
   it("creates the Express application with an injected store", () => {
     expect(createApp({ store: new TestStore() })).toBeDefined();
+  });
+
+  it("fails an LLM run immediately when no provider is configured", () => {
+    expect(missingLlmProviderError("llm")).toEqual({
+      error: "LLM_PROVIDER_NOT_CONFIGURED",
+      required: ["LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL"],
+    });
+    expect(missingLlmProviderError("fixed-threshold")).toBeNull();
   });
 });

@@ -1,6 +1,13 @@
 import cors from "cors";
 import express from "express";
-import { hashObject, replayPairedExperiment, runPairedExperiment } from "@agorasim/core";
+import {
+  hashObject,
+  replayPairedExperiment,
+  runPairedExperiment,
+  runPairedExperimentWithDecisionAdapter,
+  type DecisionRequest,
+  type ExternalDecision,
+} from "@agorasim/core";
 import { z } from "zod";
 
 import { createResearchExport } from "./export.js";
@@ -9,7 +16,7 @@ import { registerX402Resource, type X402ResourceConfig } from "./x402-resource.j
 
 const runRequestSchema = z.object({
   protocolSeed: z.string().min(1).max(64).regex(/^[a-zA-Z0-9_-]+$/),
-  decisionMode: z.enum(["evidence-blind", "fixed-threshold"]),
+  decisionMode: z.enum(["evidence-blind", "fixed-threshold", "llm"]),
 }).strict();
 
 function pairIdFor(protocolSeed: string, decisionMode: string): string {
@@ -30,7 +37,29 @@ function summaryFor(pairId: string, result: ReturnType<typeof runPairedExperimen
   };
 }
 
-export function createApp({ store, x402 }: { store: RunStore; x402?: X402ResourceConfig }) {
+interface RunnerDecisionAdapter {
+  decideForRunner(request: DecisionRequest): Promise<ExternalDecision>;
+}
+
+export function missingLlmProviderError(
+  decisionMode: "evidence-blind" | "fixed-threshold" | "llm",
+  decisionAdapter?: RunnerDecisionAdapter,
+) {
+  return decisionMode === "llm" && !decisionAdapter ? {
+    error: "LLM_PROVIDER_NOT_CONFIGURED",
+    required: ["LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL"],
+  } : null;
+}
+
+export function createApp({
+  store,
+  x402,
+  decisionAdapter,
+}: {
+  store: RunStore;
+  x402?: X402ResourceConfig;
+  decisionAdapter?: RunnerDecisionAdapter;
+}) {
   const app = express();
   app.use(cors());
   app.use(express.json({ limit: "64kb" }));
@@ -52,7 +81,17 @@ export function createApp({ store, x402 }: { store: RunStore; x402?: X402Resourc
       response.status(200).json({ ...existing.summary, idempotentReplay: true });
       return;
     }
-    const result = runPairedExperiment(parsed.data.protocolSeed, parsed.data.decisionMode);
+    const configurationError = missingLlmProviderError(parsed.data.decisionMode, decisionAdapter);
+    if (configurationError) {
+      response.status(503).json(configurationError);
+      return;
+    }
+    const result = parsed.data.decisionMode === "llm"
+      ? await runPairedExperimentWithDecisionAdapter(
+        parsed.data.protocolSeed,
+        (observation) => decisionAdapter!.decideForRunner(observation),
+      )
+      : runPairedExperiment(parsed.data.protocolSeed, parsed.data.decisionMode);
     const stored: StoredPair = { summary: summaryFor(pairId, result), result };
     await store.savePair(stored);
     response.status(201).json(stored.summary);

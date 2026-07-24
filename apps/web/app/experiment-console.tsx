@@ -21,7 +21,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4100";
 
 type View = "lab" | "compare";
 type BranchChoice = "control" | "treatment";
-type DecisionChoice = "evidence-blind" | "fixed-threshold";
+type DecisionChoice = "evidence-blind" | "fixed-threshold" | "llm";
 
 function percent(value: number): string {
   return `${(value * 100).toFixed(value === 0 ? 0 : 1)}%`;
@@ -124,6 +124,11 @@ export function ExperimentConsole({ initialResult }: { initialResult: PairedExpe
   const claim = branch.claims[0];
   const claimEvidence = claim ? branch.evidence.find((item) => item.id === claim.evidenceId) : undefined;
   const observedActions = new Set(result.treatment.decisions.map((decision) => decision.action));
+  const modeValidation: [string, boolean] = result.control.decisionMode === "fixed-threshold"
+    ? ["Threshold direction restored", result.validation.fixedThresholdPositive === true]
+    : result.control.decisionMode === "evidence-blind"
+      ? ["Evidence-blind effect = 0", result.validation.evidenceBlindZero === true]
+      : ["LLM result direction unrestricted", true];
 
   async function runPair() {
     setRunning(true);
@@ -176,6 +181,7 @@ export function ExperimentConsole({ initialResult }: { initialResult: PairedExpe
           <select aria-label="Decision mode" value={decisionMode} onChange={(event) => setDecisionMode(event.target.value as DecisionChoice)}>
             <option value="fixed-threshold">Fixed-threshold</option>
             <option value="evidence-blind">Evidence-blind</option>
+            <option value="llm">LLM Agent</option>
           </select>
           <input aria-label="Protocol seed" value={protocolSeed} onChange={(event) => setProtocolSeed(event.target.value)} />
           <button className="run-button" onClick={runPair} disabled={running} title="Run paired experiment">
@@ -281,9 +287,7 @@ export function ExperimentConsole({ initialResult }: { initialResult: PairedExpe
               ["Treatment omissions = 0", result.validation.treatmentEvidenceOmissionCount === 0],
               ["Balances conserved", result.validation.balancesConserved],
               ["Supply conserved", result.validation.suppliesConserved],
-              result.control.decisionMode === "fixed-threshold"
-                ? ["Threshold direction restored", result.validation.fixedThresholdPositive === true]
-                : ["Evidence-blind effect = 0", result.validation.evidenceBlindZero === true],
+              modeValidation,
             ].map(([label, passed]) => <div className="check-row" key={String(label)}><span>{label}</span><strong className={passed ? "ok" : "fail"}>{passed ? "PASS" : "FAIL"}</strong></div>)}
           </aside>
           <aside className="action-pane">

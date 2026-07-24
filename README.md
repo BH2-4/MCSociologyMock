@@ -6,7 +6,7 @@ AgoraSim runs a paired synthetic-society experiment that tests whether a verifie
 
 ## Current status
 
-The deterministic Mock/recorded path, Wallet Policy, x402 v2 contract, receipt verifier, PostgreSQL API, SSE event stream, Replay, Live Evidence Lab, Compare view, and desktop/mobile E2E are implemented. Real Injective testnet settlement is coded but has not been executed because funded branch wallets, a facilitator Gas key, a merchant address, and service credentials are not configured. No transaction hash is claimed until `fixtures/testnet-seed-receipts.json` is created by the real payment command.
+The deterministic and LLM-driven Mock/recorded paths, Wallet Policy, x402 v2 contract, receipt verifier, PostgreSQL API, SSE event stream, Replay, Live Evidence Lab, Compare view, and desktop/mobile E2E are implemented. Real Injective testnet settlement is coded but has not been executed because funded branch wallets, a facilitator Gas key, a merchant address, and service credentials are not configured. No transaction hash is claimed until `fixtures/testnet-seed-receipts.json` is created by the real payment command.
 
 See [docs/DOD.md](./docs/DOD.md) for the PRD 16.2 evidence matrix.
 
@@ -52,7 +52,7 @@ Replay recalculates metrics from recorded events. Its output records `llmCalls: 
 
 ## OpenAI-compatible adapter
 
-Set `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL` in `.env`. The single adapter uses `POST /chat/completions` with a strict JSON Schema, validates cited Claim/Evidence IDs against the observation, retries Schema failure twice, then records `IDLE`. It never requests or stores hidden chain-of-thought. Online LLM experiment execution remains blocked until those three values are supplied; fixture tests cover the structured decision contract without paid calls.
+Set `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL` in `.env`, then submit a run with `decisionMode: "llm"`. The single adapter uses `POST /chat/completions` with a strict JSON Schema, validates cited Claim/Evidence IDs against the observation, retries Schema failure twice, then records `IDLE`. Provider HTTP/network errors fail directly. The paired Runner records only explicit action summaries, visible references, model/request/response hashes, attempts and token usage; it never requests or stores hidden chain-of-thought. Online execution remains blocked until those three values are supplied; a recorded response Fixture drives a complete paired integration test without paid calls.
 
 ## Injective testnet mode
 
@@ -94,6 +94,8 @@ pnpm test
 pnpm build
 pnpm test:e2e
 ```
+
+If port 3000 is already occupied, use a free test-server port, for example `PLAYWRIGHT_PORT=3010 pnpm test:e2e`.
 
 Focused coverage includes keyed randomness, branch diffs, paired baselines, balance/supply conservation, Replay, Wallet Policy, x402 v2 headers, settlement/fulfillment failure injection, refund revocation, facilitator nonce locking, receipt reconciliation, export redaction, and one Playwright journey at desktop and mobile viewports.
 

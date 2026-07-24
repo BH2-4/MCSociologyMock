@@ -8,7 +8,10 @@ import type {
   ConsumerAgent,
   DecisionMode,
   DecisionRecord,
+  DecisionRequest,
+  DeterministicDecisionMode,
   Evidence,
+  ExternalDecision,
   ExperimentEvent,
   PairedExperimentResult,
   PaymentRecord,
@@ -43,7 +46,7 @@ function baseCredibility(agent: ConsumerAgent, relationshipTrust: number): numbe
   return clamp(agent.baselineTrust * 0.35 + agent.productAffinity * 0.45 + relationshipTrust * 0.2);
 }
 
-function chooseAction(agent: ConsumerAgent, credibility: number, mode: DecisionMode): AgentAction {
+function chooseAction(agent: ConsumerAgent, credibility: number, mode: DeterministicDecisionMode): AgentAction {
   const selector = agent.index % 4;
   if (selector === 0) {
     const threshold = mode === "evidence-blind" ? 0.53 : agent.adoptionThreshold;
@@ -54,7 +57,21 @@ function chooseAction(agent: ConsumerAgent, credibility: number, mode: DecisionM
   return "IDLE";
 }
 
-function runBranch(config: BranchConfig): BranchRun {
+type BranchMachine = Generator<DecisionRequest, BranchRun, ExternalDecision>;
+
+function validateExternalDecision(request: DecisionRequest, decision: ExternalDecision): string | null {
+  const claimIds = new Set(request.claims.map((claim) => claim.id));
+  const evidenceIds = new Set(request.evidence.map((item) => item.id));
+  if (decision.observedClaimIds.some((id) => !claimIds.has(id))) return "CLAIM_NOT_VISIBLE";
+  if (decision.observedEvidenceIds.some((id) => !evidenceIds.has(id))) return "EVIDENCE_NOT_VISIBLE";
+  if (decision.action === "INSPECT_EVIDENCE" && request.evidence.length === 0) return "NO_VISIBLE_EVIDENCE";
+  if (decision.action === "CHAT" && !request.allowedChatTargetIds.includes(decision.targetIds[0] ?? "")) {
+    return "INVALID_CHAT_TARGET";
+  }
+  return null;
+}
+
+function* runBranchMachine(config: BranchConfig): BranchMachine {
   const events: ExperimentEvent[] = [];
   const decisions: DecisionRecord[] = [];
   const claims: Claim[] = [];
@@ -237,15 +254,14 @@ function runBranch(config: BranchConfig): BranchRun {
         const relationship = config.relationships.find((edge) => edge.sourceId === claim.authorId && edge.targetId === agent.id);
         const trust = relationship?.trust ?? 0.5;
         const visibleEvidence = config.receiptVisibility === "VERIFIED_SUMMARY" && Boolean(claim.evidenceId);
-        const credibility = clamp(baseCredibility(agent, trust) + (
+        let credibility = clamp(baseCredibility(agent, trust) + (
           config.decisionMode === "fixed-threshold" && visibleEvidence ? agent.evidenceWeight : 0
         ));
 
-        addEvent(tick, "CREDIBILITY_ASSESSED", { actorId: agent.id, entityId: claim.id, causedByEventId: state.observationEventId }, {
-          credibilityAssessment: credibility,
-        });
-
         if (config.decisionMode === "fixed-threshold" && visibleEvidence && !state.inspected) {
+          addEvent(tick, "CREDIBILITY_ASSESSED", { actorId: agent.id, entityId: claim.id, causedByEventId: state.observationEventId }, {
+            credibilityAssessment: credibility,
+          });
           const action = addEvent(tick, "ACTION_PROPOSED", { actorId: agent.id, entityId: claim.id, causedByEventId: state.observationEventId }, { action: "INSPECT_EVIDENCE" });
           addEvent(tick, "EVIDENCE_INSPECTED", { actorId: agent.id, entityId: claim.evidenceId, causedByEventId: action.eventId }, { claimId: claim.id });
           decisions.push({
@@ -258,12 +274,62 @@ function runBranch(config: BranchConfig): BranchRun {
             observedEvidenceIds: claim.evidenceId ? [claim.evidenceId] : [],
             reasonCodes: ["RECEIPT_VERIFIED"],
             causedByEventId: state.observationEventId,
+            decisionSource: "deterministic",
           });
           state.inspected = true;
           continue;
         }
 
-        const actionName = chooseAction(agent, credibility, config.decisionMode);
+        let actionName: AgentAction;
+        let targetIds: string[] = [];
+        let externalDecision: ExternalDecision | undefined;
+        let decisionMetadata: Partial<DecisionRecord> = { decisionSource: "deterministic" };
+        if (config.decisionMode === "llm") {
+          const decisionRequest: DecisionRequest = {
+            agent: { id: agent.id, persona: agent.persona, budgetMicros: agent.budgetMicros },
+            tick,
+            claims: [{ id: claim.id, body: claim.body, authorId: claim.authorId }],
+            evidence: visibleEvidence && claim.evidenceId ? [{
+              id: claim.evidenceId,
+              claimId: claim.id,
+              proofScope: PROOF_SCOPE,
+              doesNotProve: DOES_NOT_PROVE,
+            }] : [],
+            product: { id: PRODUCT_OFFER.id, amount: PRODUCT_OFFER.amount, assetSymbol: PRODUCT_OFFER.assetSymbol },
+            allowedChatTargetIds: config.relationships
+              .filter((edge) => edge.sourceId === agent.id && edge.channel === "CHAT")
+              .map((edge) => edge.targetId),
+            inspectedEvidenceIds: state.inspected && claim.evidenceId ? [claim.evidenceId] : [],
+          };
+          externalDecision = yield decisionRequest;
+          const rejectionReason = validateExternalDecision(decisionRequest, externalDecision);
+          credibility = clamp(externalDecision.credibilityAssessment);
+          actionName = rejectionReason ? "IDLE" : externalDecision.action;
+          targetIds = externalDecision.targetIds;
+          decisionMetadata = {
+            decisionSource: "llm",
+            expectedOutcome: externalDecision.expectedOutcome,
+            confidence: externalDecision.confidence,
+            provider: externalDecision.provider,
+            model: externalDecision.model,
+            requestHash: externalDecision.requestHash,
+            responseHash: externalDecision.responseHash,
+            attempts: externalDecision.attempts,
+            schemaFailed: externalDecision.schemaFailed,
+            usage: externalDecision.usage,
+          };
+          if (rejectionReason) {
+            addEvent(tick, "ACTION_REJECTED", { actorId: agent.id, entityId: claim.id, causedByEventId: state.observationEventId }, {
+              proposedAction: externalDecision.action,
+              reason: rejectionReason,
+            });
+          }
+        } else {
+          actionName = chooseAction(agent, credibility, config.decisionMode);
+        }
+        addEvent(tick, "CREDIBILITY_ASSESSED", { actorId: agent.id, entityId: claim.id, causedByEventId: state.observationEventId }, {
+          credibilityAssessment: credibility,
+        });
         const action = addEvent(tick, "ACTION_PROPOSED", { actorId: agent.id, entityId: claim.id, causedByEventId: state.observationEventId }, { action: actionName });
         decisions.push({
           agentId: agent.id,
@@ -271,11 +337,23 @@ function runBranch(config: BranchConfig): BranchRun {
           claimId: claim.id,
           action: actionName,
           credibilityAssessment: credibility,
-          observedClaimIds: [claim.id],
-          observedEvidenceIds: visibleEvidence && claim.evidenceId ? [claim.evidenceId] : [],
-          reasonCodes: visibleEvidence ? ["RECEIPT_VERIFIED", "PRODUCT_FIT"] : ["NO_VISIBLE_RECEIPT", "PRODUCT_FIT"],
+          observedClaimIds: externalDecision
+            ? externalDecision.observedClaimIds.filter((id) => id === claim.id)
+            : [claim.id],
+          observedEvidenceIds: externalDecision
+            ? externalDecision.observedEvidenceIds.filter((id) => visibleEvidence && id === claim.evidenceId)
+            : visibleEvidence && claim.evidenceId ? [claim.evidenceId] : [],
+          reasonCodes: externalDecision?.reasonCodes ?? (visibleEvidence ? ["RECEIPT_VERIFIED", "PRODUCT_FIT"] : ["NO_VISIBLE_RECEIPT", "PRODUCT_FIT"]),
           causedByEventId: state.observationEventId,
+          ...decisionMetadata,
         });
+
+        if (actionName === "INSPECT_EVIDENCE" && visibleEvidence && claim.evidenceId) {
+          addEvent(tick, "EVIDENCE_INSPECTED", { actorId: agent.id, entityId: claim.evidenceId, causedByEventId: action.eventId }, { claimId: claim.id });
+          state.inspected = true;
+          continue;
+        }
+
         state.acted = true;
 
         if (actionName === "BUY") buyWithMockPayment(agent, tick, action.eventId);
@@ -289,7 +367,9 @@ function runBranch(config: BranchConfig): BranchRun {
           }
         }
         if (actionName === "CHAT") {
-          const target = config.relationships.find((edge) => edge.sourceId === agent.id && edge.channel === "CHAT")?.targetId;
+          const target = config.decisionMode === "llm"
+            ? targetIds[0]
+            : config.relationships.find((edge) => edge.sourceId === agent.id && edge.channel === "CHAT")?.targetId;
           if (target) {
             const chat = addEvent(tick, "CHAT_SENT", { actorId: agent.id, targetId: target, entityId: claim.id, causedByEventId: action.eventId }, { claimId: claim.id });
             pending.push({ tick: tick + 1, recipientId: target, claimId: claim.id, causedByEventId: chat.eventId, channel: "CHAT" });
@@ -330,9 +410,28 @@ function runBranch(config: BranchConfig): BranchRun {
   return { ...runWithoutMetrics, events, metrics };
 }
 
+function runBranch(config: BranchConfig): BranchRun {
+  const machine = runBranchMachine(config);
+  const result = machine.next();
+  if (!result.done) throw new Error("A decision adapter is required for llm mode");
+  return result.value;
+}
+
+async function runBranchWithDecisionAdapter(
+  config: BranchConfig,
+  decide: (request: DecisionRequest) => Promise<ExternalDecision>,
+): Promise<BranchRun> {
+  const machine = runBranchMachine(config);
+  let result = machine.next();
+  while (!result.done) {
+    result = machine.next(await decide(result.value));
+  }
+  return result.value;
+}
+
 export function runPairedExperiment(
   protocolSeed: string,
-  decisionMode: DecisionMode,
+  decisionMode: DeterministicDecisionMode,
 ): PairedExperimentResult {
   const protocol = lockDefaultProtocol(protocolSeed);
   const controlConfig = createBranchConfig(protocol, "control", decisionMode);
@@ -341,6 +440,27 @@ export function runPairedExperiment(
   if (!branchDiffReport.pass) throw new Error("Branch semantic diff validation failed");
   const control = runBranch(controlConfig);
   const treatment = runBranch(treatmentConfig);
+  const pairedEffect = treatment.metrics.adoptionRate - control.metrics.adoptionRate;
+  const partial = { control, treatment, pairedEffect };
+  return {
+    protocol,
+    branchDiffReport,
+    ...partial,
+    validation: buildValidation(partial),
+  };
+}
+
+export async function runPairedExperimentWithDecisionAdapter(
+  protocolSeed: string,
+  decide: (request: DecisionRequest) => Promise<ExternalDecision>,
+): Promise<PairedExperimentResult> {
+  const protocol = lockDefaultProtocol(protocolSeed);
+  const controlConfig = createBranchConfig(protocol, "control", "llm");
+  const treatmentConfig = createBranchConfig(protocol, "treatment", "llm");
+  const branchDiffReport = validateBranchDiff(controlConfig, treatmentConfig);
+  if (!branchDiffReport.pass) throw new Error("Branch semantic diff validation failed");
+  const control = await runBranchWithDecisionAdapter(controlConfig, decide);
+  const treatment = await runBranchWithDecisionAdapter(treatmentConfig, decide);
   const pairedEffect = treatment.metrics.adoptionRate - control.metrics.adoptionRate;
   const partial = { control, treatment, pairedEffect };
   return {

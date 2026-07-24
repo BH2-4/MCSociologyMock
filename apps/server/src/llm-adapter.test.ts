@@ -1,3 +1,4 @@
+import { runPairedExperimentWithDecisionAdapter } from "@agorasim/core";
 import { describe, expect, it, vi } from "vitest";
 
 import { OpenAiCompatibleDecisionAdapter, type LlmObservation } from "./llm-adapter.js";
@@ -13,6 +14,8 @@ const observation: LlmObservation = {
     doesNotProve: ["PRODUCT_QUALITY", "ACTUAL_USAGE", "REVIEW_TRUTH"],
   }],
   product: { id: "offer_eco_cup", amount: "300000", assetSymbol: "USDC" },
+  allowedChatTargetIds: ["consumer-04"],
+  inspectedEvidenceIds: [],
 };
 
 function completion(content: string): Response {
@@ -94,5 +97,56 @@ describe("OpenAI-compatible decision adapter", () => {
     }, fetchFixture);
 
     expect((await adapter.decide(observation)).schemaFailed).toBe(true);
+  });
+
+  it("fails immediately on provider HTTP errors instead of converting them to IDLE", async () => {
+    const fetchFixture = vi.fn<typeof fetch>().mockResolvedValue(new Response("unavailable", { status: 503 }));
+    const adapter = new OpenAiCompatibleDecisionAdapter({
+      baseUrl: "https://llm.invalid/v1",
+      apiKey: "test-only-key",
+      model: "fixture-model",
+    }, fetchFixture);
+
+    await expect(adapter.decide(observation)).rejects.toThrow("LLM request failed with 503");
+    expect(fetchFixture).toHaveBeenCalledTimes(1);
+  });
+
+  it("drives a full paired run from recorded OpenAI-compatible responses", async () => {
+    const fetchFixture = vi.fn<typeof fetch>(async (_input, init) => {
+      const request = JSON.parse(String(init?.body)) as {
+        messages: Array<{ content: string }>;
+      };
+      const visible = JSON.parse(request.messages[1].content) as LlmObservation;
+      const evidenceVisible = visible.evidence.length > 0;
+      return completion(JSON.stringify({
+        action: evidenceVisible ? "BUY" : "IDLE",
+        target_ids: evidenceVisible ? ["merchant-01"] : [],
+        content: "",
+        decision_summary: {
+          observed_claim_ids: visible.claims.map((claim) => claim.id),
+          observed_evidence_ids: visible.evidence.map((item) => item.id),
+          credibility_assessment: evidenceVisible ? 0.82 : 0.38,
+          reason_codes: evidenceVisible ? ["RECEIPT_VERIFIED", "PRICE_ACCEPTABLE"] : ["NO_VISIBLE_RECEIPT"],
+          expected_outcome: evidenceVisible ? "Purchase the fixed offer." : "No action.",
+          confidence: 0.7,
+        },
+      }));
+    });
+    const adapter = new OpenAiCompatibleDecisionAdapter({
+      baseUrl: "https://llm.invalid/v1",
+      apiKey: "test-only-key",
+      model: "fixture-model",
+    }, fetchFixture);
+
+    const result = await runPairedExperimentWithDecisionAdapter(
+      "llm-adapter-recording",
+      (request) => adapter.decideForRunner(request),
+    );
+
+    expect(result.control.metrics.adoptedNonSeed).toBe(0);
+    expect(result.treatment.metrics.adoptedNonSeed).toBeGreaterThan(0);
+    expect(result.treatment.decisions[0]?.requestHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(result.treatment.decisions[0]?.responseHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(fetchFixture).toHaveBeenCalled();
   });
 });
