@@ -1,10 +1,21 @@
-# Keep the repository limited to the PRD and authored research outputs.
-/*
-!/.gitignore
-!/PRD.md
-!/research/
+# Local source material and OS metadata
+.DS_Store
+research/外来补充/
 
-/research/*
-!/research/annotated-bibliography.md
-!/research/search-log.md
-!/research/systematic-review.md
+# Dependencies and build output
+node_modules/
+.pnpm-store/
+.next/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Local runtime state
+.env
+.env.*
+!.env.example
+*.log
+*.sqlite
+*.sqlite3
