@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { createResearchExport } from "./export.js";
 import type { PairSummary, RunStore, StoredPair } from "./store.js";
+import { registerX402Resource, type X402ResourceConfig } from "./x402-resource.js";
 
 const runRequestSchema = z.object({
   protocolSeed: z.string().min(1).max(64).regex(/^[a-zA-Z0-9_-]+$/),
@@ -29,10 +30,11 @@ function summaryFor(pairId: string, result: ReturnType<typeof runPairedExperimen
   };
 }
 
-export function createApp({ store }: { store: RunStore }) {
+export function createApp({ store, x402 }: { store: RunStore; x402?: X402ResourceConfig }) {
   const app = express();
   app.use(cors());
   app.use(express.json({ limit: "64kb" }));
+  if (x402) registerX402Resource(app, x402);
 
   app.get("/health", (_request, response) => {
     response.json({ status: "ok", storage: "postgresql", simulation: "paired-p0" });
