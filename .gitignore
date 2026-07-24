@@ -1,0 +1,10 @@
+# Keep the repository limited to the PRD and authored research outputs.
+/*
+!/.gitignore
+!/PRD.md
+!/research/
+
+/research/*
+!/research/annotated-bibliography.md
+!/research/search-log.md
+!/research/systematic-review.md
