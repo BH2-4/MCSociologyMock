@@ -21,11 +21,11 @@ Status date: 2026-07-25. `PASS` means reproducible code/test or inspected UI evi
 | Forced settlement failure returns no paid response and releases inventory | PASS | official `after-success` middleware contract plus route-wired `FulfillmentLedger`; failure and replay tests |
 | Post-settlement fulfillment failure refunds then revokes Evidence | PASS (failure injection) | refund state and compensating receipt verifier tests; no extra real refund is sent |
 | Evidence-blind difference is exactly zero; threshold direction restored | PASS | testnet-backed `testnet-seed-01`: `pair-fd5d7a07f7f8b65c` = 0; `pair-cdb31bee52562e1f` = +4/22 |
-| Live Lab shows Claim -> Evidence -> exposure -> judgment -> propagation -> purchase | PASS | event lineage inspector navigates direct parents/children; production desktop/mobile Playwright evidence |
-| Compare shows paired difference, funnel, baselines and failure checks | PASS | per-Seed rows juxtapose LLM/Evidence-blind/Fixed-threshold and report direction instability; UI/E2E |
+| Live Lab shows Claim -> Evidence -> exposure -> judgment -> propagation -> purchase | PASS | event lineage inspector navigates direct parents/children; live UI verified Injective testnet mode, four receipts and a Blockscout link |
+| Compare shows paired difference, funnel, baselines and failure checks | PASS | live `ui-testnet-01` row plus per-Seed LLM/Evidence-blind/Fixed-threshold rows; desktop/mobile E2E |
 | Replay calls no LLM, signer, or facilitator and rebuilds results | PASS | testnet-backed Replay event hash `f11fc...1fb`; side effects are `llmCalls=0`, `signatures=0`, `facilitatorCalls=0` |
 | Export includes protocol/config/events/metrics/payment index but no secrets/thought chain | PASS | `export.ts` and redaction test |
-| Critical automated tests and one end-to-end Demo test | PASS | focused core/server tests pass; full workspace and E2E gates are rerun before final delivery |
+| Critical automated tests and one end-to-end Demo test | PASS | workspace typecheck/build, 58 core/server tests, and the Playwright main flow on desktop/mobile pass |
 
 ## Remaining external input and environment notes
 

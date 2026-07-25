@@ -17,8 +17,11 @@ test("inspects the recorded evidence chain and paired comparison", async ({ page
   await expect(page.getByRole("table", { name: "Branch comparison" })).toBeVisible();
   await expect(page.getByText("Control Evidence leak = 0")).toBeVisible();
   await expect(page.getByText("Wallet branches isolated")).toBeVisible();
-  await expect(page.getByText("demo-seed-01").first()).toBeVisible();
-  await expect(page.getByText("evidence-blind", { exact: true })).toBeVisible();
+  const evidenceBlindBaseline = page.locator(".baseline-row")
+    .filter({ hasText: "demo-seed-01" })
+    .filter({ hasText: "evidence-blind" });
+  await expect(evidenceBlindBaseline).toHaveCount(1);
+  await expect(evidenceBlindBaseline).toBeVisible();
   await expect(page.getByText("llm", { exact: true })).toBeVisible();
   await expect(page.getByText("INSPECT_EVIDENCE")).toBeVisible();
   await page.screenshot({ path: `test-results/${testInfo.project.name}-compare.png`, fullPage: true });
