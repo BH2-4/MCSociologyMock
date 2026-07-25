@@ -155,4 +155,8 @@ Gesellschaft 的部分开发与方法整理使用了 **Kiro**。感谢 Kiro 在�
 
 <img src="./docs/assets/kiro-development-session.png" alt="Gesellschaft 使用 Kiro 进行开发与方法整理的终端会话" width="720">
 
+团队成员也使用 **Qoder** 完成了项目的部分开发与文档工作。感谢 Qoder 提供的工具会员支持。
+
+<img src="./docs/assets/qoder-development-session.png" alt="Gesellschaft 团队成员使用 Qoder 参与项目开发与文档工作的界面" width="720">
+
 MIT License。Gesellschaft 与 HoYoverse、Minecraft、Mojang、Microsoft 无隶属或官方合作关系；案例中的公开名称仅用于研究与演示。
