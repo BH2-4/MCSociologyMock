@@ -1,54 +1,114 @@
-# AgoraSim
+# Gesellschaft
 
-AgoraSim runs a paired synthetic-society experiment that tests whether a verified Injective x402 purchase receipt changes message credibility, propagation, and paid adoption. The P0 protocol uses 24 heterogeneous consumer Agents, one deterministic merchant, four communities, eight ticks, and one fixed 0.30 testnet-USDC offer.
+> 让发行策略先在一个社会中发生
 
-**Research boundary:** this is a synthetic simulation, not a real-market forecast. A receipt proves purchase, amount, merchant, and time. It does not prove product quality, actual usage, review truth, or recommendation motive.
+可验证的合成社会实验与游戏发行决策系统。
 
-## Current status
+Gesellschaft 让模型 Token 驱动的异质 Agent 承担低成本的早期假设筛选：同一组玩家、关系网络与外部条件下，只改变一个发行变量，观察信息如何被理解、传播并转化为行动。它不替代真人研究，也不输出单角色真实流水预测；它把有限预算优先用在更值得进入真实调研和投放验证的方向上。
 
-The deterministic and LLM-driven Mock/recorded paths, Wallet Policy, x402 v2 contract, receipt verifier, PostgreSQL API, SSE event stream, Replay, navigable Live Evidence Lab, multi-mode Compare view, and desktop/mobile E2E are implemented. Verified seed receipt Fixtures are replayed into the paired Runner, including branch wallet addresses, tx hashes, Evidence and Blockscout links.
+当前系统聚焦游戏全球发行链条中的日本市场。首个实际案例研究《绝区零》Ver.3.1 蕾米埃尔：在公开事实、素材、福利、卡池、曝光、人群、时序和随机场一致时，比较“战斗价值优先”与“角色/叙事情感优先”两种首屏表达，判断其对合成玩家传播、抽取计划与模拟充值的方向性影响。
 
-A local, ignored 300-wallet Injective testnet bundle was structurally and cryptographically verified. Chain audit on `eip155:1439` found all 300 wallets funded with 0.002 testnet INJ and five wallets funded with 1 testnet USDC. Four funded wallets are configured as branch-isolated seeds, a fifth as the facilitator, and a distinct sixth address as merchant; no secret is committed. All four seed payments are confirmed in `fixtures/testnet-seed-receipts.json`: every seed now holds 0.70 testnet USDC, the merchant received 1.20 testnet USDC, and all four bounded Evidence records validate. A testnet-backed paired run restored Evidence-blind `0` and Fixed-threshold `+4/22`. PostgreSQL migration/save/read/Replay has also been exercised against the Compose database. The Token Plan key is configured only in the ignored local environment. After two provider-level failures, a supplemental one-Agent validation identified and verified the MiniMax Tool Schema/completion-budget fix. The subsequent full 24-Agent online Run `pair-ccdd15dc5e91285c` completed with a legitimate negative effect of `-4/22`: Control adoption was `18.18%`, Treatment adoption was `0%`. No Prompt tuning followed. Both branches finished eight Ticks with zero final Schema failures, branch isolation passed, all four testnet Evidence records were present, Replay had zero side effects, and the export was redacted. Public audit reports are in `fixtures/online-mini-validation.json` and `fixtures/online-llm-run-audit.json`.
+> 合成模拟与移动端公开代理，不代表日本全平台或单角色真实流水。
 
-See [docs/DOD.md](./docs/DOD.md) for the PRD 16.2 evidence matrix.
+## 它解决什么
 
-## P1: ZZZ 3.1 Japan publishing lab
+独立游戏开发者和探索新市场的游戏团队，常常需要同时完成市场判断、用户定位、本地化、内容策略和效果评估。快速成型与专业知识之间的取舍很难消失，尤其在 42 天版本周期里，很多假设还没来得及验证就已经进入发布。
 
-The pre-launch P1 case is available at `http://localhost:3000/p1` after `pnpm dev`. It is fixed to Japan, Zenless Zone Zero Ver.3.1, and Remiel (`レミエール`). The four workspaces are Market Fit, Audience Map, Strategy Lab, and Outcome & Calibration.
+Gesellschaft 把这类决策变成可审计的实验：先锁定问题、处理变量和失败条件，再让 Agent 社会运行；结果可以为正、负、零或不稳定，系统不会为了“得到好看结论”回调 Prompt。发布后再用公开代理信号回踩偏差，形成长期校准。
 
-P1 loads the public Source Bundle R14-R17, freezes a version Snapshot, builds four historical Japan iOS analog cards, and runs two paired message-positioning branches over the same 24-agent population and keyed random field:
-
-- `COMBAT_VALUE_FIRST` (Control)
-- `CHARACTER_AFFINITY_FIRST` (Treatment)
-
-P1 uses only a Synthetic Spend Ledger. Its normalized units are not yen, Polychromes, pulls, USDC, or revenue. The initial state is `AWAITING_POSTLAUNCH_OBSERVATION`; the UI does not fabricate the 2026-07-29, `T+24h`, or `T+72h` public observations. P1 API endpoints are:
-
-```bash
-curl -X POST http://localhost:4100/v1/experiments/zzz-3.1-jp/runs \
-  -H 'Content-Type: application/json' \
-  -d '{"protocolSeed":"zzz-jp-seed-01","agentCount":24}'
-
-# Optional provider-backed P1 run; Control and Treatment are still executed serially.
-curl -X POST http://localhost:4100/v1/experiments/zzz-3.1-jp/runs \
-  -H 'Content-Type: application/json' \
-  -H 'x-agorasim-run-token: YOUR_LOCAL_RUN_TOKEN' \
-  -d '{"protocolSeed":"zzz-jp-llm-fixture-01","agentCount":4,"decisionMode":"llm"}'
-
-curl -X POST http://localhost:4100/v1/experiments/zzz-3.1-jp/replay \
-  -H 'Content-Type: application/json' \
-  -d '{"pairId":"PAIR_ID_RETURNED_BY_THE_RUN"}'
+```mermaid
+flowchart LR
+  A["历史事件诊断"] --> B["预注册方向性预测"]
+  B --> C["配对合成社会实验"]
+  C --> D["真实版本发布"]
+  D --> E["T_release / T+24h / T+72h 公开代理"]
+  E --> F["偏差诊断与理论更新"]
+  F --> G["新 protocol_hash"]
+  G --> A
 ```
 
-The API runs the deterministic core on the server by default. With `decisionMode: "llm"`, the same OpenAI-compatible Adapter used by P0 receives a P1-specific structured action contract; it calls the provider serially for every non-seed Agent in Control, then every non-seed Agent in Treatment. Replay reads the completed pair recorded in the current API session and never calls the provider; use Export JSON for a durable artifact. After the real version launch, append only public Japanese mobile ranking or official-interaction observations through the validated observation contract; never overwrite the Snapshot or preregistration.
+旧实验不因现实结果而被重写。任何理论、Persona、阈值或参数调整都会生成新的 `protocol_hash`，保留失败记录，并在后续版本周期做样本外验证。
 
-## Requirements
+## 已经得到的结果
 
-- Node.js 20+
-- pnpm 11.4+
-- Docker with Compose for PostgreSQL 16
-- Google Chrome for the local Playwright configuration
+P0 研究“已核验购买凭证是否改变可信度、传播和购买”。24 个消费者 Agent、1 个确定性商家、4 个社群和 8 个 Tick 在配对分支中共享同一随机场。
 
-## Install and run Mock mode
+| 决策器 | 关键结果 | 解释 |
+| --- | ---: | --- |
+| Evidence-blind | `0` | 看不到凭证时，两分支严格一致，隔离基线成立 |
+| Fixed-threshold | `+4/22` | 展示凭证后，预设机制按预注册方向恢复 |
+| MiniMax-M2.7 真实配对 Run | `-4/22` | Control 采用率 `18.18%`，Treatment `0%`；负结果被原样保留 |
+
+P1 的 24 Agent 确定性配对实验中，战斗价值优先为 `107`、角色情感优先为 `77`，差异为 `-30` 个 Synthetic Spend Unit。该单位不是日元、抽数、USDC 或财务预测，只用于同一协议内比较方向和机制。
+
+四笔种子 A2A 支付已在 Injective EVM Testnet `eip155:1439` 确认。P0 同时完成 Wallet Policy、x402 签名与结算、Indexer/收据核验、Evidence 回流、Replay 零副作用和导出脱敏。可复核证据见 [DoD 验收矩阵](./docs/DOD.md) 与 [测试网收据 Fixture](./fixtures/testnet-seed-receipts.json)。
+
+![P0 Live Evidence Lab](./docs/assets/p0-live-evidence-lab.png)
+
+## 日本发行实验室
+
+P1 由四个连续工作区组成：
+
+1. **Market Fit**：冻结版本事实、平台边界、竞争窗口、历史事件与混杂因素。
+2. **Audience Map**：描述日本市场中活跃、回流、潜在、战斗、角色、外观、预算与平台异质人群。
+3. **Strategy Lab**：通过 Localization Gate 保证两分支只改变信息排序与表达重心，再运行配对 Agent 与 Synthetic Spend Ledger。
+4. **Outcome & Calibration**：输出配对差、传播与决策漏斗、分层结果、失败条件和发行建议。
+
+系统只使用公开资料并冻结 Source Bundle、内容哈希、采集时间和方法。星见雅、耀嘉音、仪玄、浮波柚叶构成四张日本 iOS 历史参照卡；排名不会被线性换算为收入，Game-i 只标记为第三方粗估。
+
+![P1 ZZZ 3.1 日本发行实验室](./docs/assets/p1-japan-publishing-lab.png)
+
+Ver.3.1 将于 2026-07-29（JST）上线。发布前状态固定为 `AWAITING_POSTLAUNCH_OBSERVATION`；系统不会伪造尚未发生的榜单、互动量或收入。上线后只在独立追加层记录 `T_release`、`T+24h`、`T+72h` 的日本移动端公开榜单与官方内容互动，用作弱外部校验，而不是宣称验证了现实处理效应。
+
+## 为什么需要 Web3
+
+普通 Agent 调研通常只能记录“它说想买”。Gesellschaft 把 Web3 作为可信经济行为层，用来区分表达意图与已验证支付：
+
+```text
+Agent 请求购买
+  -> Wallet Policy 在签名前限制网络、资产、商家、金额和预算
+  -> x402 生成支付授权
+  -> Injective 测试网结算
+  -> 收据与 Transfer 日志核验
+  -> 生成边界明确的 Evidence
+  -> Evidence 回到社会传播与决策链
+```
+
+收据只能证明购买者、商家、商品、金额和时间，不能证明产品质量、真实使用、评价真实性或推荐动机。系统仅使用测试网资产，不把链上测试币或合成单位换算成现实流水。
+
+技术实现基于 `@injectivelabs/x402@0.0.1`、viem、Injective EVM Testnet、PostgreSQL、SSE，以及一个可配置的 OpenAI-compatible Provider Adapter。LLM 输出经过结构化契约校验；系统只保存显式决策摘要、引用与原因码，不请求或保存隐藏思维链。
+
+Injective 官方资料：[x402](https://docs.injective.network/developers-ai/x402)（Injective Docs，2026-06-01 更新）、[EVM Network Information](https://docs.injective.network/developers-evm/network-information)（Injective Docs，访问于 2026-07-25）、[USDC on Injective](https://docs.injective.network/developers-defi/usdc-stablecoin)（Injective Docs，访问于 2026-07-25）。
+
+## 学术方法与长期演进
+
+当前实现把配对实验、预注册、唯一处理变量、键控随机场、分支差异检查、事件溯源、预算守恒和 Replay 作为最低研究纪律。社会学理论不是一次性装饰，而会逐步进入可版本化的策略库，用来解释信任、社会证明、网络扩散、同质性、有限理性和经济行动如何共同影响结果。
+
+长期闭环包含三类时间视角：
+
+- **以前的诊断**：用可比历史事件识别机制、混杂与边界。
+- **提前的预测**：在发布前冻结协议，只给出方向性判断和失败条件。
+- **后期的回踩**：发布后分阶段追加公开代理，诊断模拟与现实之间的偏差。
+
+这使 Agent 人群和理论参数能够持续更新，同时避免用事后事实污染原始实验。研究边界、系统综述与注释书目位于 [`research/`](./research/)。
+
+## 商业应用展望
+
+Gesellschaft 面向缺少大规模研究资源的独立开发者，以及希望低成本探索新市场、角色定位和发行表达的游戏公司。它可以把“凭经验押一个方向”改造成“先筛选假设，再把真人研究与投放预算集中到高价值问题”。
+
+当前案例只咬住日本市场的一项真实发行约束。后续可以在不牺牲证据边界的前提下，扩展到区域用户差异、多语种同步、渠道内容、福利组合、回流策略和其他特定行业问题，并为每类问题接入更专业的理论与数据方案。
+
+## 三种展示入口
+
+- **专业 Web 工作台**：供研究与发行团队检查来源、协议、Agent 行动、指标、Replay 和校准结果。
+- **独立 HTML Transaction Story**：用弹出式动画讲解 Agent 支付、Wallet Policy、x402、Injective 确认、Indexer 回流和 Evidence 生成；只消费脱敏事件，不改变实验逻辑。
+- **可选 Minecraft 模组**：把 Agent 社会行为、传播与 A2A 交易映射成更直观的演示。它是展示客户端，不持有私钥、不签名、不写入实验状态；专业团队可以完全跳过。
+
+Minecraft 展示仍属后续愿景。未来公开发布时将明确非官方关系，并遵守 Minecraft、Mojang 与 Microsoft 的品牌和分发规则。
+
+## 本地运行
+
+要求 Node.js 20+、pnpm 11.4+、Docker Compose 和 Google Chrome。
 
 ```bash
 cp .env.example .env
@@ -57,112 +117,36 @@ docker compose up -d postgres
 pnpm dev
 ```
 
-- Web: `http://localhost:3000`
-- API: `http://localhost:4100`
-- Health: `http://localhost:4100/health`
+- Web：`http://localhost:3000`
+- P1：`http://localhost:3000/p1`
+- API 健康检查：`http://localhost:4100/health`
 
-The root `.env` is loaded by the Node entrypoints and is ignored by Git. `X402_MODE=mock` is the default development mode. The UI includes a deterministic recorded result so its read-only evidence chain remains inspectable if the API is stopped; an API failure is shown explicitly and never triggers another payment or storage fallback.
-
-Create deterministic paired runs through the UI or API:
-
-```bash
-curl -X POST http://localhost:4100/v1/experiments/agorasim-p0/runs \
-  -H 'Content-Type: application/json' \
-  -H 'Idempotency-Key: demo-seed-02:fixed-threshold' \
-  -d '{"protocolSeed":"demo-seed-02","decisionMode":"fixed-threshold"}'
-```
-
-## Replay
-
-```bash
-pnpm replay:mock
-curl -X POST http://localhost:4100/v1/pairs/PAIR_ID/replay
-```
-
-Replay recalculates metrics from recorded events. Its output records `llmCalls: 0`, `signatures: 0`, and `facilitatorCalls: 0`.
-
-## OpenAI-compatible adapter
-
-Set `PROGRAM_E_AI_BASE_URL`, `PROGRAM_E_AI_API_KEY`, `PROGRAM_E_AI_MODEL`, and a separate random `PROGRAM_E_AI_RUN_TOKEN` in `.env`, then submit a run with `decisionMode: "llm"` and the token in `x-agorasim-run-token`. For the MiniMax China Token Plan, use `https://api.minimaxi.com/v1`, a Token Plan subscription key, and `MiniMax-M2.7`. The subscription key is not interchangeable with a pay-as-you-go API key. Before a P1 LLM pair, the Adapter sends one minimal health probe and starts Control only after HTTP 200. The single adapter uses `POST /chat/completions`, enforces a strict JSON Schema locally, validates cited references against the observation, retries invalid output twice, then records an audited `IDLE`. Provider HTTP/network errors, including 429/529 and the 30-second request timeout, fail directly without switching models or restarting the pair. P1 permits only one LLM pair at a time and retains at most 16 in-session Replay records.
-
-The Prompt never requests chain-of-thought. MiniMax documents that M2.x thinking cannot be disabled, so the adapter requests `reasoning_split` only to keep provider-generated reasoning outside the explicit action. MiniMax does not document native `response_format: json_schema` support, but does document `tools`, `tool_choice` and JSON-encoded `message.tool_calls[].function.arguments`; the Adapter therefore uses one forced action tool and `max_completion_tokens: 2048` for MiniMax. It parses and hashes only explicit action arguments. Provider `content`, `reasoning_content` and `reasoning_details` are immediately discarded, never hashed, persisted, exported, or shown. Only explicit decision summaries, visible references, reason codes and confidence enter the experiment record. Recorded responses drive P0 and P1 integration tests without paid calls.
-
-Official configuration sources: [Token Plan: other tools](https://platform.minimaxi.com/docs/token-plan/other-tools) and [OpenAI SDK](https://platform.minimaxi.com/docs/api-reference/text-openai-api).
-
-## Injective testnet mode
-
-Only Injective EVM Testnet `eip155:1439` is accepted. The fixed asset is USDC at `0x0C382e685bbeeFE5d3d9C29e29E341fEE8E84C5d`; the offer amount is `300000` base units. `@injectivelabs/x402` is locked to `0.0.1`.
-
-Prepare `.env` with:
-
-- `MERCHANT_AGENT_ADDRESS`: unique merchant EOA.
-- `FACILITATOR_PRIVATE_KEY`: Gas EOA with testnet INJ.
-- `FACILITATOR_SERVICE_TOKEN`: random service credential shared only by Resource Server and facilitator.
-- `FACILITATOR_ALLOWED_IPS`: Resource Server source IPs.
-- Four `*_KEY_REF=env:...` references and their four unique private-key environment values.
-- `X402_MODE=testnet`, `X402_FACILITATOR_URL`, and `PUBLIC_RESOURCE_BASE_URL`.
-
-Fund each of the four seed branch wallets with at least 0.30 testnet USDC; 0.35 is recommended. Fund the facilitator with enough testnet INJ for four settlements. Do not use mainnet or assets with real value.
-
-### Inputs required in a fresh checkout
-
-The current local instance satisfies these inputs through ignored `0600` files; they are intentionally absent from GitHub. Every fresh checkout must provide its own:
-
-- Provide one unique merchant address plus a dedicated facilitator private key and service token.
-- Provide four independent seed-wallet private-key references; fund each resolved wallet with 0.35 Injective testnet USDC.
-- Fund the facilitator wallet with Injective testnet INJ for Gas.
-
-Keep all private keys and service tokens only in the ignored local `.env` or an equivalent secret store. Never paste them into issues, commits, prompts, logs, or the browser.
-
-Start the independent services:
-
-```bash
-pnpm build
-pnpm dev:facilitator
-X402_MODE=testnet pnpm --filter @agorasim/server dev
-pnpm --filter @agorasim/web dev
-```
-
-Execute the four required seed payments once:
-
-```bash
-pnpm seed:testnet
-```
-
-The command enforces Wallet Policy before `createPayment`, validates the confirmed USDC `Transfer` log with viem, creates bounded Evidence, and writes each completed payment immediately to `fixtures/testnet-seed-receipts.json`. Existing `(branch, logicalAgentId)` entries are strictly validated and skipped so reruns do not intentionally pay twice.
-
-The repository Fixture contains these confirmed testnet transactions:
-
-- [`0xbafe527a9daaf3bec84c2be4fffee113caaedfa52097e464082604f5ac51b211`](https://testnet.blockscout.injective.network/tx/0xbafe527a9daaf3bec84c2be4fffee113caaedfa52097e464082604f5ac51b211)
-- [`0xf18a81c0fb7392133e34a21d8ead8fbaf6c0b59cf3b15cd7ff44bac0734248f2`](https://testnet.blockscout.injective.network/tx/0xf18a81c0fb7392133e34a21d8ead8fbaf6c0b59cf3b15cd7ff44bac0734248f2)
-- [`0xfcb322d243e650fb9dd682775539e97ad3ea2452a329923954cf2778a7e2be1b`](https://testnet.blockscout.injective.network/tx/0xfcb322d243e650fb9dd682775539e97ad3ea2452a329923954cf2778a7e2be1b)
-- [`0xf80c90265e1ae0a01a5bf9675e3d7f733eacd3e89db864dc61525d97d2c4844f`](https://testnet.blockscout.injective.network/tx/0xf80c90265e1ae0a01a5bf9675e3d7f733eacd3e89db864dc61525d97d2c4844f)
-
-The first two transfers encountered the testnet RPC's missing single-hash receipt index. They were reconciled against the exact chain ID, transaction hash, USDC contract, payer, merchant, amount, block and `Transfer` log before their simulated ownership credentials were delivered. The Fixture labels recovered fulfillment and reconstructed timestamp provenance explicitly. No transaction was repeated.
-
-After all four payments finish, restart the API. Testnet experiment creation is rejected with `TESTNET_SEED_RECEIPTS_NOT_READY` until the complete Fixture is loaded. Once loaded, paired runs consume the four recorded receipts and never sign or settle them again.
-
-Official references:
-
-- [x402](https://docs.injective.network/developers-ai/x402), Injective Docs, updated 2026-06-01.
-- [EVM Network Information](https://docs.injective.network/developers-evm/network-information), Injective Docs, publication time not stated; retrieved 2026-07-25.
-- [USDC on Injective](https://docs.injective.network/developers-defi/usdc-stablecoin), Injective Docs, publication time not stated; retrieved 2026-07-25.
-
-## Verification
+默认 `X402_MODE=mock`，适合确定性运行与 Replay。常用验证命令：
 
 ```bash
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm replay:mock
 pnpm test:e2e
 ```
 
-If port 3000 is already occupied, use a free test-server port, for example `PLAYWRIGHT_PORT=3010 pnpm test:e2e`.
+OpenAI-compatible 模式需要在本地 `.env` 提供 `PROGRAM_E_AI_BASE_URL`、`PROGRAM_E_AI_API_KEY`、`PROGRAM_E_AI_MODEL` 和独立随机的 `PROGRAM_E_AI_RUN_TOKEN`。密钥不得提交、打印或进入 Prompt。
 
-Focused coverage includes keyed randomness, branch diffs, paired baselines, balance/supply conservation, Replay, Wallet Policy, x402 v2 headers, settlement/fulfillment failure injection, refund revocation, facilitator nonce locking, receipt reconciliation, export redaction, and one Playwright journey at desktop and mobile viewports.
+真实 Injective 测试网路径还需要：
 
-## Deployment
+- 唯一商家地址、专用 Facilitator 私钥及服务 Token。
+- 4 个独立种子钱包私钥引用，每个解析出的地址建议注资 `0.35` 测试网 USDC。
+- Facilitator 钱包中的测试网 INJ，用于 Gas。
 
-Deploy `apps/web` and `apps/server` as separate Node.js 20+ processes, deploy `apps/server/dist/facilitator.js` as a private service, and use one PostgreSQL database. Expose only Web/API publicly; restrict facilitator `/verify` and `/settle` by network source and Bearer service identity. Set the API's `NEXT_PUBLIC_API_URL` at Web build time. Do not expose `.env`, payer keys, facilitator keys, signatures, database files, or logs.
+私钥和服务 Token 只保存在被忽略的本地 `.env` 或 Secret Store。完整接口、支付、部署和验收细节见 [PRD](./PRD.md) 与 [DoD 验收矩阵](./docs/DOD.md)。
 
-There is no SQLite, in-memory runtime, RPC failover, second LLM SDK, local-model fallback, or mainnet mode.
+## 边界
+
+- 合成 Agent 用于早期假设筛选，不替代真实玩家研究、可用性测试或市场调查。
+- 当前输出是方向性实验结果，不是日本全平台、东京地区或单角色真实流水预测。
+- 公开移动榜单与互动量只能作为弱代理，不能推导精确收入或现实因果效应。
+- P1 不新增真实游戏账号、真实抽卡或充值，也不会重复消耗 P0 已验证的测试网交易。
+- 正、负、零和不稳定结果均为合法结果；系统不为获得正结果调参。
+
+MIT License。Gesellschaft 与 HoYoverse、Minecraft、Mojang、Microsoft 无隶属或官方合作关系；案例中的公开名称仅用于研究与演示。
