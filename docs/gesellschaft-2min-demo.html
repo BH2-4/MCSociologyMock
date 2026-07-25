@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Gesellschaft 两分钟项目演示：合成社会实验、游戏发行决策与 Injective 证据层。">
+  <title>Gesellschaft · 2 分钟项目演示</title>
+  <style>
+    :root {
+      --ink: #171816;
+      --muted: #676a64;
+      --line: #cfd3ca;
+      --paper: #f4f5f1;
+      --white: #ffffff;
+      --dark: #1c1f1b;
+      --acid: #d7ff3f;
+      --acid-deep: #91bd00;
+      --coral: #f05a40;
+      --cyan: #1eaeb7;
+      --yellow: #ffcc4a;
+      --title-size: clamp(2rem, 7vh, 4.8rem);
+      --h2-size: clamp(1.55rem, 5vh, 3.4rem);
+      --h3-size: clamp(1rem, 2.8vh, 1.55rem);
+      --body-size: clamp(0.82rem, 2.15vh, 1.28rem);
+      --small-size: clamp(0.68rem, 1.65vh, 0.95rem);
+      --pad-y: clamp(1rem, 5vh, 4rem);
+      --pad-x: clamp(1rem, 5%, 5.5rem);
+      --gap: clamp(0.75rem, 3vh, 2.2rem);
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      font-family: "Avenir Next", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; overflow-x: hidden; }
+    html { scroll-snap-type: y mandatory; scroll-behavior: smooth; background: var(--paper); }
+    body { margin: 0; color: var(--ink); background: var(--paper); letter-spacing: 0; }
+    button, a { font: inherit; }
+    button:focus-visible, a:focus-visible { outline: 3px solid rgba(30, 174, 183, .45); outline-offset: 3px; }
+
+    .slide {
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      position: relative;
+      isolation: isolate;
+      display: flex;
+      flex-direction: column;
+      scroll-snap-align: start;
+      border-bottom: 1px solid var(--line);
+      background-color: var(--paper);
+      background-image:
+        linear-gradient(rgba(23, 24, 22, .035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(23, 24, 22, .035) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+
+    .slide--dark {
+      color: #f7f8f3;
+      background-color: var(--dark);
+      background-image:
+        linear-gradient(rgba(255, 255, 255, .04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, .04) 1px, transparent 1px);
+    }
+
+    .slide--white { background-color: var(--white); }
+    .slide-content {
+      flex: 1;
+      width: min(100%, 1600px);
+      max-height: 100%;
+      margin: 0 auto;
+      padding: var(--pad-y) var(--pad-x);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: var(--gap);
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { max-width: 13ch; margin-bottom: 0; font-size: var(--title-size); line-height: 1.03; }
+    .hero-title { max-width: 12em; }
+    h2 { max-width: 18em; margin-bottom: 0; font-size: var(--h2-size); line-height: 1.08; }
+    h3 { margin-bottom: .35rem; font-size: var(--h3-size); line-height: 1.2; }
+    p { font-size: var(--body-size); line-height: 1.55; }
+    .eyebrow { margin: 0 0 .35rem; color: var(--muted); font-size: var(--small-size); font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+    .slide--dark .eyebrow { color: #aeb4aa; }
+    .lede { max-width: 38ch; margin-bottom: 0; color: var(--muted); font-size: clamp(1rem, 2.7vh, 1.55rem); }
+    .slide--dark .lede { color: #c7ccc2; }
+    .accent { color: #a43b29; }
+    .slide--dark .accent { color: var(--acid); }
+
+    .brand { display: flex; align-items: center; gap: clamp(.65rem, 1.5vh, 1rem); }
+    .brand img { width: clamp(44px, 8vh, 72px); height: clamp(44px, 8vh, 72px); object-fit: cover; object-position: left; }
+    .brand strong { display: block; font-size: var(--body-size); }
+    .brand span { display: block; color: var(--muted); font-size: var(--small-size); }
+    .slide--dark .brand span { color: #aeb4aa; }
+
+    .signal {
+      position: absolute;
+      right: var(--pad-x);
+      bottom: var(--pad-y);
+      width: clamp(110px, 22vh, 210px);
+      aspect-ratio: 1;
+      z-index: -1;
+      border: clamp(12px, 2.3vh, 24px) solid var(--acid);
+      border-right-color: var(--coral);
+      transform: rotate(18deg);
+    }
+
+    .two-col { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); align-items: center; gap: clamp(1rem, 5%, 5rem); }
+    .three-col { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(.55rem, 2%, 1.2rem); }
+    .slide-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+    .tag { display: inline-flex; align-items: center; min-height: 1.8rem; padding: .25rem .55rem; border: 1px solid currentColor; border-radius: 4px; font-size: var(--small-size); font-weight: 800; }
+
+    .plain-panel, .metric, .route-step, .result-box, .chain-node {
+      min-width: 0;
+      padding: clamp(.8rem, 2.2vh, 1.5rem);
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, .86);
+    }
+    .plain-panel { border-top: 5px solid var(--cyan); }
+    .plain-panel:nth-child(2) { border-top-color: var(--yellow); }
+    .plain-panel:nth-child(3) { border-top-color: var(--coral); }
+    .plain-panel p, .route-step p, .result-box p { margin-bottom: 0; color: var(--muted); font-size: var(--small-size); }
+    .metric { border-top: 5px solid var(--cyan); }
+    .metric:nth-child(2) { border-top-color: var(--yellow); }
+    .metric:nth-child(3) { border-top-color: var(--coral); }
+    .metric b { display: block; color: var(--coral); font-size: clamp(2.8rem, 10vh, 6.5rem); line-height: .9; font-variant-numeric: tabular-nums; }
+    .metric span { display: block; margin-top: .5rem; color: var(--muted); font-size: var(--small-size); }
+
+    .function-route, .evidence-route { display: grid; gap: clamp(.45rem, 1.5%, 1rem); }
+    .function-route { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .evidence-route {
+      grid-template-columns:
+        minmax(6.5rem, 1fr) auto minmax(7.5rem, 1.15fr) auto minmax(6rem, .8fr) auto
+        minmax(7.5rem, 1.15fr) auto minmax(6rem, .85fr) auto minmax(6.5rem, 1fr);
+      align-items: stretch;
+    }
+    .route-step { min-height: clamp(7rem, 21vh, 12rem); }
+    .route-step::before { content: attr(data-index); display: block; margin-bottom: clamp(.5rem, 2vh, 1.2rem); color: var(--coral); font-size: clamp(1.3rem, 4vh, 2.6rem); font-weight: 900; }
+    .evidence-route .route-step {
+      min-height: 0;
+      aspect-ratio: 1.28 / 1;
+      border-top: 5px solid var(--cyan);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .evidence-route .chain-node strong { font-size: clamp(.9rem, 1.45vw, 1.35rem); overflow-wrap: normal; word-break: normal; }
+    .evidence-route .route-step:nth-child(3) { border-top-color: var(--yellow); }
+    .evidence-route .route-step:nth-child(5) { border-top-color: var(--coral); }
+    .evidence-route .route-step::before { margin-bottom: .4rem; font-size: var(--small-size); }
+    .route-arrow { display: grid; place-items: center; color: var(--cyan); font-size: clamp(1rem, 3vh, 2rem); font-weight: 900; }
+
+    .agent-board { display: grid; grid-template-columns: repeat(12, 1fr); gap: clamp(3px, .65vh, 7px); padding: clamp(.75rem, 2vh, 1.25rem); border: 1px solid var(--line); background: var(--white); }
+    .agent-dot { aspect-ratio: 1; border-radius: 50%; background: var(--cyan); animation: breathe 2.4s ease-in-out infinite; }
+    .agent-dot:nth-child(5n) { background: var(--yellow); animation-delay: .15s; }
+    .agent-dot:nth-child(7n) { background: var(--coral); animation-delay: .28s; }
+    .agent-dot:nth-child(11n) { background: var(--acid-deep); animation-delay: .42s; }
+
+    .compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(.75rem, 3%, 2rem); }
+    .compare-side { padding: clamp(.85rem, 2.5vh, 1.6rem); border: 1px solid var(--line); background: var(--white); }
+    .compare-side--control { border-top: 6px solid var(--coral); }
+    .compare-side--treatment { border-top: 6px solid var(--cyan); }
+    .compare-side p { margin-bottom: .5rem; color: var(--muted); font-size: var(--small-size); }
+    .compare-side strong { display: block; font-size: clamp(1.6rem, 5vh, 3.5rem); line-height: 1; }
+    .compare-side--control strong { color: var(--coral); }
+    .compare-side--treatment strong { color: #287352; }
+
+    .chain-node { border-color: #596057; background: #252a24; }
+    .chain-node strong { display: block; color: var(--acid); font-size: var(--h3-size); }
+    .chain-node span { display: block; margin-top: .4rem; color: #b9c0b5; font-size: var(--small-size); }
+    .slide--dark .evidence-route {
+      grid-template-columns:
+        minmax(6.5rem, 1fr) auto minmax(7.5rem, 1.15fr) auto minmax(6rem, .8fr) auto
+        minmax(7.5rem, 1.15fr) auto minmax(6rem, .85fr) auto minmax(6.5rem, 1fr);
+    }
+    .slide--dark .route-arrow { color: var(--acid); }
+    .slide--dark .plain-panel, .slide--dark .boundary { color: var(--ink); }
+
+    .live-board { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: clamp(.75rem, 3%, 2rem); }
+    .event-log { display: grid; gap: .55rem; }
+    .event { display: grid; grid-template-columns: 4.7rem 1fr auto; align-items: center; gap: .55rem; min-height: 2.4rem; padding: .35rem .55rem; border-bottom: 1px solid var(--line); font-size: var(--small-size); }
+    .event b { color: var(--coral); font-size: .72rem; }
+    .event span { color: var(--muted); }
+    .ledger { display: grid; gap: .6rem; align-content: center; }
+    .ledger-row { display: flex; justify-content: space-between; gap: 1rem; padding: .6rem 0; border-bottom: 1px solid var(--line); font-size: var(--small-size); }
+    .ledger-row b { color: #287352; }
+    .ask-list { display: grid; gap: clamp(.5rem, 1.7vh, 1rem); }
+
+    .result-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(.5rem, 1.5%, 1rem); }
+    .result-box { padding: clamp(.75rem, 2vh, 1.2rem); }
+    .result-box b { display: block; color: var(--ink); font-size: clamp(2rem, 7vh, 4.5rem); line-height: 1; font-variant-numeric: tabular-nums; }
+    .result-box:nth-child(2) b { color: var(--acid-deep); }
+    .result-box:nth-child(3) b, .result-box:nth-child(4) b { color: var(--coral); }
+    .result-box span { display: block; margin-top: .55rem; color: var(--muted); font-size: var(--small-size); }
+    .boundary { display: grid; grid-template-columns: auto 1fr; gap: .8rem; align-items: center; padding: clamp(.75rem, 2vh, 1.2rem); border-left: 6px solid var(--coral); background: #fff5f2; }
+    .boundary strong { font-size: var(--body-size); }
+    .boundary span { color: var(--muted); font-size: var(--small-size); }
+    .final-line { max-width: 16ch; margin-bottom: 0; font-size: var(--title-size); font-weight: 900; line-height: 1.05; }
+
+    .footer-mark { position: absolute; left: var(--pad-x); bottom: clamp(.45rem, 1.7vh, 1rem); color: var(--muted); font-size: clamp(.58rem, 1.3vh, .78rem); font-weight: 700; }
+    .slide--dark .footer-mark { color: #8e958b; }
+    .speaker-notes { display: none; position: absolute; left: var(--pad-x); right: var(--pad-x); bottom: clamp(1.6rem, 4vh, 2.8rem); z-index: 30; max-height: 30vh; overflow: auto; padding: .8rem 1rem; border: 1px solid var(--ink); background: rgba(255, 255, 255, .96); color: var(--ink); font-size: clamp(.68rem, 1.6vh, .92rem); line-height: 1.55; }
+    body.show-notes .slide.is-active .speaker-notes { display: block; }
+
+    [data-reveal] { opacity: 0; transform: translateY(18px); transition: opacity 420ms var(--ease), transform 420ms var(--ease); }
+    .is-active [data-reveal] { opacity: 1; transform: translateY(0); }
+    .is-active [data-reveal]:nth-child(2) { transition-delay: 80ms; }
+    .is-active [data-reveal]:nth-child(3) { transition-delay: 150ms; }
+    .is-active [data-reveal]:nth-child(4) { transition-delay: 220ms; }
+
+
+    @keyframes breathe { 0%, 100% { opacity: .55; transform: scale(.88); } 50% { opacity: 1; transform: scale(1); } }
+    @media (max-width: 760px) {
+      .two-col, .live-board { grid-template-columns: 1fr; }
+      .three-col { grid-template-columns: 1fr; }
+      .function-route { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .evidence-route { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .slide--dark .evidence-route { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .evidence-route .route-arrow { display: none; }
+      .evidence-route .route-step { min-height: 0; padding: .65rem; }
+      .result-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .metric b { font-size: clamp(2.4rem, 10vh, 5rem); }
+    }
+    @media (max-width: 430px) {
+      .slide-content { padding-left: .9rem; padding-right: .9rem; }
+      .function-route { gap: .4rem; }
+      .route-step { min-height: 0; padding: .65rem; }
+      .evidence-route, .slide--dark .evidence-route { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .event { grid-template-columns: 3.7rem 1fr; }
+      .event time { display: none; }
+    }
+    @media (max-height: 700px) {
+      :root { --pad-y: clamp(.75rem, 3vh, 2rem); --gap: clamp(.45rem, 1.6vh, 1rem); --title-size: clamp(1.75rem, 7vh, 3.5rem); --h2-size: clamp(1.3rem, 5.2vh, 2.5rem); }
+      .plain-panel p, .route-step p, .result-box p { line-height: 1.35; }
+    }
+    @media (max-height: 560px) { .footer-mark { display: none; } .speaker-notes { max-height: 24vh; } }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+      html { scroll-behavior: auto; }
+      [data-reveal] { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <main id="deck">
+    <section class="slide slide--dark" id="slide-1" aria-label="标题与项目定位" data-duration="12">
+      <div class="slide-content">
+        <div class="brand" data-reveal>
+          <img src="../apps/web/public/gesellschaft-logo.svg" alt="Gesellschaft 标志">
+          <div><strong>GESELLSCHAFT / SYNTHETIC SOCIETY LAB</strong><span>日本游戏发行决策 · 自动演示</span></div>
+        </div>
+        <div data-reveal>
+          <p class="eyebrow">A SOCIAL EXPERIMENT FOR RELEASE DECISIONS</p>
+          <h1 class="hero-title">让发行策略<br><span class="accent">先在一个社会中发生</span></h1>
+        </div>
+        <p class="lede" data-reveal>模型 Token 驱动的合成 Agent，承担早期假设筛选；不是预测器，也不替代真人研究。</p>
+        <div class="signal" aria-hidden="true"></div>
+      </div>
+      <aside class="speaker-notes">Gesellschaft 让发行策略先在一个社会中发生。我们用模型 Token 驱动的合成 Agent，做早期假设筛选：在真实投放前，先看一条发行表达如何被理解、传播并转化为行动。</aside>
+      <span class="footer-mark">01 / 08 · 项目定位</span>
+    </section>
+
+    <section class="slide" id="slide-2" aria-label="要解决的问题" data-duration="14">
+      <div class="slide-content">
+        <div class="two-col">
+          <div data-reveal>
+            <p class="eyebrow">THE PROBLEM</p>
+            <h2>发行真正缺的不是更多观点，<span class="accent">而是先试错的社会</span></h2>
+            <p class="lede">版本周期很短，真人反馈到来时，素材、渠道和下一版窗口往往已经锁定。</p>
+          </div>
+          <div class="three-col" data-reveal>
+            <div class="metric"><b>42</b><span>天版本节奏</span></div>
+            <div class="metric"><b>1</b><span>个可控处理变量</span></div>
+            <div class="metric"><b>0</b><span>虚构的现实流水</span></div>
+          </div>
+        </div>
+      </div>
+      <aside class="speaker-notes">发行团队真正缺的不是更多观点，而是一个可以先试错的社会。版本周期只有 42 天，等真人反馈到来，素材、渠道和下一版窗口往往已经锁定。我们的边界也很清楚：不把合成结果包装成现实流水。</aside>
+      <span class="footer-mark">02 / 08 · 真实问题</span>
+    </section>
+
+    <section class="slide slide--white" id="slide-3" aria-label="项目功能" data-duration="16">
+      <div class="slide-content">
+        <div class="slide-head" data-reveal>
+          <div><p class="eyebrow">THE WORKSPACE</p><h2>从事实到校准，四个连续工作区</h2></div>
+          <span class="tag">P1 / JAPAN</span>
+        </div>
+        <div class="function-route" data-reveal>
+          <section class="route-step" data-index="01"><h3>Market Fit</h3><p>冻结公开事实、平台边界、历史事件与混杂。</p></section>
+          <section class="route-step" data-index="02"><h3>Audience Map</h3><p>建立日本市场的行为、预算、平台和网络异质性。</p></section>
+          <section class="route-step" data-index="03"><h3>Strategy Lab</h3><p>只改变一个表达变量，运行同一批 Agent 的配对实验。</p></section>
+          <section class="route-step" data-index="04"><h3>Outcome &amp; Calibration</h3><p>看传播、计划与模拟充值，再等待公开代理回踩。</p></section>
+        </div>
+        <div class="boundary" data-reveal><strong>研究纪律</strong><span>预注册、唯一处理变量、键控随机场、protocol_hash 与 Replay。</span></div>
+      </div>
+      <aside class="speaker-notes">系统把一次发行决策拆成四个连续工作区：先锁定公开事实和混杂，再建立日本用户异质性地图，然后做唯一处理变量的配对实验，最后把结果和上线后的公开代理放回校准闭环。</aside>
+      <span class="footer-mark">03 / 08 · 项目功能</span>
+    </section>
+
+    <section class="slide" id="slide-4" aria-label="实际实验内容" data-duration="18">
+      <div class="slide-content">
+        <div class="slide-head" data-reveal>
+          <div><p class="eyebrow">CASE STUDY / ZZZ VER.3.1</p><h2>同一社会，只换首屏的表达重心</h2></div>
+          <span class="tag">日本 · 蕾米埃尔</span>
+        </div>
+        <div class="agent-board" id="agent-board" aria-label="24 个合成 Agent" data-reveal></div>
+        <div class="compare" data-reveal>
+          <section class="compare-side compare-side--control"><h3>COMBAT_VALUE_FIRST</h3><p>战斗价值优先</p><strong>Control</strong></section>
+          <section class="compare-side compare-side--treatment"><h3>CHARACTER_AFFINITY_FIRST</h3><p>角色与叙事情感优先</p><strong>Treatment</strong></section>
+        </div>
+        <p class="lede" data-reveal>人口、网络、消息、价格、时序和随机场全部相同。</p>
+      </div>
+      <aside class="speaker-notes">第一个实际问题是《绝区零》Ver.3.1 蕾米埃尔的日本发行。两组使用同一批 24 个 Agent、同一网络、同一时序和随机场，只改变首屏是战斗价值优先，还是角色与叙事情感优先。</aside>
+      <span class="footer-mark">04 / 08 · 实验内容</span>
+    </section>
+
+    <section class="slide slide--dark" id="slide-5" aria-label="Web3 证据链" data-duration="16">
+      <div class="slide-content">
+        <div data-reveal><p class="eyebrow">WEB3 / INJECTIVE TESTNET</p><h2>把“想买”与“已核验购买”分开</h2></div>
+        <div class="evidence-route" data-reveal>
+          <div class="chain-node route-step" data-index="01"><strong>Claim</strong><span>Agent 表达意图</span></div>
+          <div class="route-arrow">→</div>
+          <div class="chain-node route-step" data-index="02"><strong>Wallet Policy</strong><span>网络、资产、商家、预算</span></div>
+          <div class="route-arrow">→</div>
+          <div class="chain-node route-step" data-index="03"><strong>x402</strong><span>授权与结算</span></div>
+          <div class="route-arrow">→</div>
+          <div class="chain-node route-step" data-index="04"><strong>Injective 1439</strong><span>测试网确认</span></div>
+          <div class="route-arrow">→</div>
+          <div class="chain-node route-step" data-index="05"><strong>Indexer</strong><span>收据回流</span></div>
+          <div class="route-arrow">→</div>
+          <div class="chain-node route-step" data-index="06"><strong>Evidence</strong><span>边界明确的证明</span></div>
+        </div>
+        <p class="lede" data-reveal>收据证明购买、金额、商家和时间；不证明质量、体验或推荐动机。</p>
+      </div>
+      <aside class="speaker-notes">当 Agent 表达想买时，系统不会把一句话当成购买。Wallet Policy 先校验网络、资产、商家和预算；x402 完成授权，Injective 测试网确认交易，Indexer 回流收据，只有金额、商家、商品和时间都核验后才生成 Evidence。</aside>
+      <span class="footer-mark">05 / 08 · Web3 证据链</span>
+    </section>
+
+    <section class="slide slide--white" id="slide-6" aria-label="项目内容演示" data-duration="16">
+      <div class="slide-content">
+        <div data-reveal><p class="eyebrow">LIVE EVIDENCE LAB</p><h2>不是一个分数，而是一条可回看的行动链</h2></div>
+        <div class="live-board" data-reveal>
+          <div class="event-log" aria-label="Agent 事件时间线">
+            <div class="event"><b>TICK 02</b><strong>VIEW_RELEASE_INFO</strong><time>consumer-05</time></div>
+            <div class="event"><b>TICK 03</b><strong>INSPECT_EVIDENCE</strong><time>consumer-05</time></div>
+            <div class="event"><b>TICK 03</b><strong>POST / SHARE</strong><time>consumer-13</time></div>
+            <div class="event"><b>TICK 04</b><strong>BUY → SETTLED</strong><time>consumer-05</time></div>
+            <div class="event"><b>REPLAY</b><span>LLM 0 · signatures 0</span><time>safe</time></div>
+          </div>
+          <div class="ledger">
+            <div class="ledger-row"><span>Evidence inspections</span><b>13</b></div>
+            <div class="ledger-row"><span>Chats / Posts</span><b>2 / 4</b></div>
+            <div class="ledger-row"><span>Purchases</span><b>6</b></div>
+            <div class="ledger-row"><span>Export</span><b>redacted</b></div>
+          </div>
+        </div>
+        <p class="lede" data-reveal>每个事件都有 source、父事件和时间；Replay 不重新调用模型、不签名、不上链。</p>
+      </div>
+      <aside class="speaker-notes">我们看到的不是一个黑箱分数，而是完整行动链：谁查看了资料、谁聊天或发帖、谁计划抽取、谁保存或跳过、谁产生模拟充值。每个事件都能沿父事件回看，Replay 不重新调用模型、不签名、不上链。</aside>
+      <span class="footer-mark">06 / 08 · 行动与 Replay</span>
+    </section>
+
+    <section class="slide" id="slide-7" aria-label="项目效果" data-duration="14">
+      <div class="slide-content">
+        <div data-reveal><p class="eyebrow">OBSERVED EFFECT / NO PROMPT TUNING</p><h2>结果可以为正、为负，也可以是零</h2></div>
+        <div class="result-grid" data-reveal>
+          <div class="result-box"><b data-count="0">0</b><span>P0 Evidence-blind</span></div>
+          <div class="result-box"><b data-count="4">+4</b><span>P0 Fixed-threshold / 22</span></div>
+          <div class="result-box"><b data-count="-4">−4</b><span>MiniMax 配对 / 22</span></div>
+          <div class="result-box"><b data-count="-30">−30</b><span>P1 Synthetic Spend Unit</span></div>
+        </div>
+        <div class="compare" data-reveal>
+          <section class="compare-side compare-side--control"><p>MiniMax Control</p><strong>18.18%</strong></section>
+          <section class="compare-side compare-side--treatment"><p>MiniMax Treatment</p><strong>0%</strong></section>
+        </div>
+        <p class="lede" data-reveal>负结果被保留；不为了得到正结果修改 Prompt、Persona、阈值或样本。</p>
+      </div>
+      <aside class="speaker-notes">当前结果说明系统可以检验方向，而不是保证正结果。P0 的 Evidence-blind 配对差是 0，Fixed-threshold 是加 4；一次 MiniMax 配对得到负效应减 4。P1 确定性实验中，Control 107、Treatment 77，差值是负 30 个合成单位。</aside>
+      <span class="footer-mark">07 / 08 · 当前效果</span>
+    </section>
+
+    <section class="slide slide--dark" id="slide-8" aria-label="价值与研究边界" data-duration="14">
+      <div class="slide-content">
+        <div class="two-col">
+          <div data-reveal>
+            <p class="eyebrow">WHY IT MATTERS</p>
+            <p class="final-line">把发行判断，从<span class="accent">事后解释</span>变成事前演练。</p>
+          </div>
+          <div class="ask-list" data-reveal>
+            <div class="plain-panel"><h3>给独立开发者</h3><p>用低成本 Token 先筛选值得投入真人研究的假设。</p></div>
+            <div class="plain-panel"><h3>给发行团队</h3><p>把事实、行动、证据和公开回踩放进同一条链。</p></div>
+            <div class="plain-panel"><h3>给学术研究</h3><p>保留 protocol_hash、失败条件和可复核 Replay。</p></div>
+          </div>
+        </div>
+        <div class="boundary" data-reveal><strong>边界</strong><span>合成模拟与移动端公开代理，不代表日本全平台或单角色真实流水；不替代真人研究。</span></div>
+      </div>
+      <aside class="speaker-notes">这让独立开发者和探索新市场的团队，能低成本筛选更值得投入真人研究的假设。它不替代真人研究，不预测日本全平台或单角色真实流水；发布后我们用公开代理回踩偏差，让系统和理论持续变得更可靠。</aside>
+      <span class="footer-mark">08 / 08 · 价值与边界</span>
+    </section>
+  </main>
+
+  <script>
+    'use strict';
+
+    const slides = [...document.querySelectorAll('.slide')];
+    const durations = slides.map((slide) => Number(slide.dataset.duration) * 1000);
+    const mediaReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let index = 0;
+    let slideStartedAt = performance.now();
+    let autoPlaying = new URLSearchParams(location.search).get('autoplay') !== '0';
+    let rafId = 0;
+
+    function activate(nextIndex, smooth = true) {
+      const next = Math.max(0, Math.min(slides.length - 1, nextIndex));
+      index = next;
+      slideStartedAt = performance.now();
+      slides[index].scrollIntoView({ behavior: smooth && !mediaReduced ? 'smooth' : 'auto', block: 'start' });
+      slides.forEach((slide, slideIndex) => slide.classList.toggle('is-active', slideIndex === index));
+      history.replaceState(null, '', `#slide-${index + 1}`);
+      animateCounts(slides[index]);
+    }
+
+    function animateCounts(slide) {
+      slide.querySelectorAll('[data-count]').forEach((element) => {
+        const value = Number(element.dataset.count);
+        if (!Number.isFinite(value) || mediaReduced) { element.textContent = value > 0 ? `+${value}` : String(value); return; }
+        const start = performance.now();
+        const duration = 620;
+        const frame = (now) => {
+          const ratio = Math.min(1, (now - start) / duration);
+          const current = Math.round(value * (1 - Math.pow(1 - ratio, 3)));
+          element.textContent = current > 0 ? `+${current}` : String(current);
+          if (ratio < 1) requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+      });
+    }
+
+    function tick(now) {
+      if (autoPlaying) {
+        const elapsed = now - slideStartedAt;
+        if (elapsed >= durations[index]) {
+          if (index < slides.length - 1) activate(index + 1);
+          else autoPlaying = false;
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (['ArrowRight', 'ArrowDown', 'PageDown'].includes(event.key)) { event.preventDefault(); activate(index + 1); }
+      else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(event.key)) { event.preventDefault(); activate(index - 1); }
+      else if (event.key === 'Home') activate(0);
+      else if (event.key === 'End') activate(slides.length - 1);
+      else if (event.key.toLowerCase() === 'n') document.body.classList.toggle('show-notes');
+      else if (event.key.toLowerCase() === 'r') { activate(index, false); autoPlaying = true; }
+    });
+
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.find((entry) => entry.isIntersecting);
+      if (!visible) return;
+      const next = slides.indexOf(visible.target);
+      if (next === index) return;
+      index = next;
+      slideStartedAt = performance.now();
+      slides.forEach((slide, slideIndex) => slide.classList.toggle('is-active', slideIndex === index));
+      animateCounts(slides[index]);
+    }, { threshold: .62 });
+    slides.forEach((slide) => observer.observe(slide));
+
+    const board = document.querySelector('#agent-board');
+    board.replaceChildren(...Array.from({ length: 24 }, () => {
+      const dot = document.createElement('span');
+      dot.className = 'agent-dot';
+      dot.setAttribute('aria-hidden', 'true');
+      return dot;
+    }));
+
+    const requestedSlide = Number(location.hash.replace('#slide-', ''));
+    if (Number.isInteger(requestedSlide) && requestedSlide >= 1 && requestedSlide <= slides.length) index = requestedSlide - 1;
+    slides.forEach((slide, slideIndex) => slide.classList.toggle('is-active', slideIndex === index));
+    slides[index].scrollIntoView({ behavior: 'auto', block: 'start' });
+    animateCounts(slides[index]);
+    window.setTimeout(() => { slideStartedAt = performance.now(); }, 600);
+    rafId = requestAnimationFrame(tick);
+    window.addEventListener('beforeunload', () => cancelAnimationFrame(rafId));
+  </script>
+</body>
+</html>

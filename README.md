@@ -149,4 +149,10 @@ OpenAI-compatible 模式需要在本地 `.env` 提供 `PROGRAM_E_AI_BASE_URL`、
 - P1 不新增真实游戏账号、真实抽卡或充值，也不会重复消耗 P0 已验证的测试网交易。
 - 正、负、零和不稳定结果均为合法结果；系统不为获得正结果调参。
 
+## 致谢
+
+Gesellschaft 的部分开发与方法整理使用了 **Kiro**。感谢 Kiro 在工程探索和快速迭代过程中提供的工具支持。
+
+<img src="./docs/assets/kiro-development-session.png" alt="Gesellschaft 使用 Kiro 进行开发与方法整理的终端会话" width="720">
+
 MIT License。Gesellschaft 与 HoYoverse、Minecraft、Mojang、Microsoft 无隶属或官方合作关系；案例中的公开名称仅用于研究与演示。
