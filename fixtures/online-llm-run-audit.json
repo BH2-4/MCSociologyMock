@@ -1,0 +1,109 @@
+{
+  "reportVersion": 1,
+  "kind": "ONLINE_24_AGENT_LLM_RUN_AUDIT",
+  "pairId": "pair-ccdd15dc5e91285c",
+  "protocolSeed": "minimax-online-20260725-01",
+  "protocolHash": "6694e2bd4fcdc9fe5c9b6a7e8726d4f5c3294152fea5df9d3cc89bdb6572b1b7",
+  "decisionMode": "llm",
+  "resultAcceptedWithoutPromptTuning": true,
+  "pairedEffect": -0.18181818181818182,
+  "controlAdoptionRate": 0.18181818181818182,
+  "treatmentAdoptionRate": 0,
+  "validation": {
+    "claimParity": true,
+    "walletIsolation": true,
+    "balancesConserved": true,
+    "evidenceBlindZero": null,
+    "seedPaymentParity": true,
+    "suppliesConserved": true,
+    "fixedThresholdPositive": null,
+    "controlEvidenceLeakCount": 0,
+    "treatmentEvidenceOmissionCount": 0
+  },
+  "branches": {
+    "control": {
+      "currentTick": 8,
+      "agentCount": 24,
+      "merchantDeterministic": true,
+      "eventCount": 106,
+      "decisionCount": 13,
+      "actionCounts": { "CHAT": 8, "BUY": 4, "IDLE": 1 },
+      "schemaFailureCount": 0,
+      "retriedDecisionCount": 0,
+      "totalAttempts": 13,
+      "attemptFailureCodes": {},
+      "providerMismatchCount": 0,
+      "missingHashCount": 0,
+      "visibleEvidenceCitationCount": 0,
+      "usage": { "promptTokens": 8950, "completionTokens": 7543 },
+      "paymentCount": 6,
+      "evidenceCount": 6,
+      "verifiedTestnetEvidenceCount": 2
+    },
+    "treatment": {
+      "currentTick": 8,
+      "agentCount": 24,
+      "merchantDeterministic": true,
+      "eventCount": 109,
+      "decisionCount": 19,
+      "actionCounts": { "INSPECT_EVIDENCE": 5, "CHAT": 13, "IDLE": 1 },
+      "schemaFailureCount": 0,
+      "retriedDecisionCount": 1,
+      "totalAttempts": 20,
+      "attemptFailureCodes": { "SCHEMA_INVALID": 1 },
+      "providerMismatchCount": 0,
+      "missingHashCount": 0,
+      "visibleEvidenceCitationCount": 19,
+      "usage": { "promptTokens": 15164, "completionTokens": 13000 },
+      "paymentCount": 2,
+      "evidenceCount": 2,
+      "verifiedTestnetEvidenceCount": 2
+    }
+  },
+  "chainEvidence": {
+    "uniqueTransactionCount": 4,
+    "txHashes": [
+      "0xbafe527a9daaf3bec84c2be4fffee113caaedfa52097e464082604f5ac51b211",
+      "0xf18a81c0fb7392133e34a21d8ead8fbaf6c0b59cf3b15cd7ff44bac0734248f2",
+      "0xfcb322d243e650fb9dd682775539e97ad3ea2452a329923954cf2778a7e2be1b",
+      "0xf80c90265e1ae0a01a5bf9675e3d7f733eacd3e89db864dc61525d97d2c4844f"
+    ],
+    "blockscoutLinks": [
+      "https://testnet.blockscout.injective.network/tx/0xbafe527a9daaf3bec84c2be4fffee113caaedfa52097e464082604f5ac51b211",
+      "https://testnet.blockscout.injective.network/tx/0xf18a81c0fb7392133e34a21d8ead8fbaf6c0b59cf3b15cd7ff44bac0734248f2",
+      "https://testnet.blockscout.injective.network/tx/0xfcb322d243e650fb9dd682775539e97ad3ea2452a329923954cf2778a7e2be1b",
+      "https://testnet.blockscout.injective.network/tx/0xf80c90265e1ae0a01a5bf9675e3d7f733eacd3e89db864dc61525d97d2c4844f"
+    ]
+  },
+  "replay": {
+    "controlMetrics": {
+      "adoptionRate": 0.18181818181818182,
+      "adoptedNonSeed": 4,
+      "denominator": 22,
+      "evidenceExposureRate": 0,
+      "evidenceInspectionRate": 0,
+      "meanCredibility": 0.4962,
+      "chatCount": 8,
+      "postCount": 0,
+      "diffusionBreadth": 13,
+      "evidenceCompleteness": 1
+    },
+    "treatmentMetrics": {
+      "adoptionRate": 0,
+      "adoptedNonSeed": 0,
+      "denominator": 22,
+      "evidenceExposureRate": 1,
+      "evidenceInspectionRate": 0.3333333333333333,
+      "meanCredibility": 0.6132,
+      "chatCount": 13,
+      "postCount": 0,
+      "diffusionBreadth": 15,
+      "evidenceCompleteness": 1
+    },
+    "pairedEffect": -0.18181818181818182,
+    "eventHash": "3dcfab7addcd53de0421e65c8fe3b1341869f83c2b8b40a8be82614a791e6e21",
+    "sideEffects": { "llmCalls": 0, "signatures": 0, "facilitatorCalls": 0 }
+  },
+  "exportAudit": { "forbiddenKeys": [], "containsRawSignatureValue": false },
+  "allChecksPass": true
+}

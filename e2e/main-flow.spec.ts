@@ -22,7 +22,11 @@ test("inspects the recorded evidence chain and paired comparison", async ({ page
     .filter({ hasText: "evidence-blind" });
   await expect(evidenceBlindBaseline).toHaveCount(1);
   await expect(evidenceBlindBaseline).toBeVisible();
-  await expect(page.getByText("llm", { exact: true })).toBeVisible();
+  const llmBaseline = page.locator(".baseline-row")
+    .filter({ hasText: "demo-seed-01" })
+    .filter({ hasText: "llm" });
+  await expect(llmBaseline).toHaveCount(1);
+  await expect(llmBaseline).toBeVisible();
   await expect(page.getByText("INSPECT_EVIDENCE")).toBeVisible();
   await page.screenshot({ path: `test-results/${testInfo.project.name}-compare.png`, fullPage: true });
 });

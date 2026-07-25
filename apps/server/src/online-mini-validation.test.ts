@@ -62,10 +62,72 @@ describe("online MiniMax validation evidence", () => {
     expect(report.rows.every((row) => row.attempts === 1 && !row.schemaFailed)).toBe(true);
     expect(report.rows.find((row) => row.branch === "control")?.observedEvidenceIds).toEqual([]);
     expect(report.rows.find((row) => row.branch === "treatment")?.observedEvidenceIds).toEqual([
-      "evidence:mini-validation-seed",
+      "evidence:mini-validation-retry-20260725",
     ]);
 
     const serialized = JSON.stringify(report).toLowerCase();
     expect(serialized).not.toMatch(/["_](api[_-]?key|private[_-]?key|authorization|key_ref|signature|reasoning|chain.of.thought)["_:]/);
+  });
+
+  it("contains a complete redacted 24-Agent online Run audit", () => {
+    const report = JSON.parse(readFileSync(
+      resolveWorkspacePath("fixtures/online-llm-run-audit.json"),
+      "utf8",
+    )) as {
+      pairId: string;
+      decisionMode: string;
+      resultAcceptedWithoutPromptTuning: boolean;
+      pairedEffect: number;
+      validation: {
+        claimParity: boolean;
+        controlEvidenceLeakCount: number;
+        treatmentEvidenceOmissionCount: number;
+        walletIsolation: boolean;
+        seedPaymentParity: boolean;
+        balancesConserved: boolean;
+        suppliesConserved: boolean;
+      };
+      branches: Record<string, {
+        currentTick: number;
+        agentCount: number;
+        schemaFailureCount: number;
+        providerMismatchCount: number;
+        missingHashCount: number;
+        verifiedTestnetEvidenceCount: number;
+      }>;
+      chainEvidence: { uniqueTransactionCount: number; txHashes: string[]; blockscoutLinks: string[] };
+      replay: { eventHash: string; sideEffects: { llmCalls: number; signatures: number; facilitatorCalls: number } };
+      exportAudit: { forbiddenKeys: string[]; containsRawSignatureValue: boolean };
+      allChecksPass: boolean;
+    };
+
+    expect(report.pairId).toBe("pair-ccdd15dc5e91285c");
+    expect(report.decisionMode).toBe("llm");
+    expect(report.resultAcceptedWithoutPromptTuning).toBe(true);
+    expect(report.pairedEffect).toBe(-4 / 22);
+    expect(report.allChecksPass).toBe(true);
+    expect(report.validation).toMatchObject({
+      claimParity: true,
+      controlEvidenceLeakCount: 0,
+      treatmentEvidenceOmissionCount: 0,
+      walletIsolation: true,
+      seedPaymentParity: true,
+      balancesConserved: true,
+      suppliesConserved: true,
+    });
+    expect(Object.values(report.branches).every((branch) =>
+      branch.currentTick === 8
+      && branch.agentCount === 24
+      && branch.schemaFailureCount === 0
+      && branch.providerMismatchCount === 0
+      && branch.missingHashCount === 0
+      && branch.verifiedTestnetEvidenceCount === 2
+    )).toBe(true);
+    expect(report.chainEvidence.uniqueTransactionCount).toBe(4);
+    expect(report.chainEvidence.txHashes).toHaveLength(4);
+    expect(report.chainEvidence.blockscoutLinks).toHaveLength(4);
+    expect(report.replay.eventHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(report.replay.sideEffects).toEqual({ llmCalls: 0, signatures: 0, facilitatorCalls: 0 });
+    expect(report.exportAudit).toEqual({ forbiddenKeys: [], containsRawSignatureValue: false });
   });
 });
