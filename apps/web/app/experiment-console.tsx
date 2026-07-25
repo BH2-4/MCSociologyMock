@@ -17,9 +17,10 @@ import {
   Radio,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4100";
 
@@ -39,6 +40,13 @@ interface ProductRelease {
   text: string;
   createdAt: string;
 }
+
+const THINKING_STEPS = [
+  "Broadcasting into the society graph…",
+  "Agents scanning the release…",
+  "Updating local beliefs…",
+  "Watching first reactions form…",
+] as const;
 
 function percent(value: number): string {
   return `${(value * 100).toFixed(value === 0 ? 0 : 1)}%`;
@@ -155,7 +163,9 @@ export function ExperimentConsole({
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [productDraft, setProductDraft] = useState("");
   const [productReleases, setProductReleases] = useState<ProductRelease[]>([]);
+  const [thinkingStep, setThinkingStep] = useState(0);
   const branch = result[branchChoice];
+  const isThinking = productReleases.length > 0;
   const mechanism = useMemo(() => representativeMechanism(branch), [branch]);
   const claim = branch.claims[0];
   const claimEvidence = claim ? branch.evidence.find((item) => item.id === claim.evidenceId) : undefined;
@@ -249,7 +259,16 @@ export function ExperimentConsole({
       ...current,
     ]);
     setProductDraft("");
+    setThinkingStep(0);
   }
+
+  useEffect(() => {
+    if (!isThinking) return;
+    const timer = window.setInterval(() => {
+      setThinkingStep((step) => (step + 1) % THINKING_STEPS.length);
+    }, 850);
+    return () => window.clearInterval(timer);
+  }, [isThinking]);
 
   return (
     <main className="app-shell">
@@ -313,7 +332,13 @@ export function ExperimentConsole({
               aria-label="Product release message"
             />
             <div className="release-actions">
-              <span className="release-hint">{productDraft.trim().length > 0 ? `${productDraft.trim().length} chars` : "⌘↵ to publish"}</span>
+              <span className="release-hint">
+                {isThinking
+                  ? "Agents are thinking…"
+                  : productDraft.trim().length > 0
+                    ? `${productDraft.trim().length} chars`
+                    : "⌘↵ to publish"}
+              </span>
               <button
                 type="button"
                 className="release-submit"
@@ -327,10 +352,22 @@ export function ExperimentConsole({
           {productReleases.length > 0 && (
             <ul className="release-queue">
               {productReleases.map((release) => (
-                <li key={release.id} className="release-item">
+                <li key={release.id} className="release-item is-thinking">
                   <div className="release-item-body">
-                    <strong>Queued</strong>
-                    <p>{release.text}</p>
+                    <div className="release-thinking" aria-live="polite">
+                      <div className="release-thinking-label">
+                        <Sparkles size={13} className="release-thinking-icon" />
+                        <strong>Thinking</strong>
+                        <span className="release-thinking-dots" aria-hidden>
+                          <i /><i /><i />
+                        </span>
+                      </div>
+                      <p className="release-thinking-step">{THINKING_STEPS[thinkingStep]}</p>
+                      <div className="release-thinking-bars" aria-hidden>
+                        <span /><span /><span />
+                      </div>
+                    </div>
+                    <p className="release-item-text">{release.text}</p>
                   </div>
                   <button
                     type="button"
