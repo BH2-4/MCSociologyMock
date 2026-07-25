@@ -28,12 +28,18 @@ curl -X POST http://localhost:4100/v1/experiments/zzz-3.1-jp/runs \
   -H 'Content-Type: application/json' \
   -d '{"protocolSeed":"zzz-jp-seed-01","agentCount":24}'
 
+# Optional provider-backed P1 run; Control and Treatment are still executed serially.
+curl -X POST http://localhost:4100/v1/experiments/zzz-3.1-jp/runs \
+  -H 'Content-Type: application/json' \
+  -H 'x-agorasim-run-token: YOUR_LOCAL_RUN_TOKEN' \
+  -d '{"protocolSeed":"zzz-jp-llm-fixture-01","agentCount":4,"decisionMode":"llm"}'
+
 curl -X POST http://localhost:4100/v1/experiments/zzz-3.1-jp/replay \
   -H 'Content-Type: application/json' \
-  -d '{"protocolSeed":"zzz-jp-seed-01","agentCount":24}'
+  -d '{"pairId":"PAIR_ID_RETURNED_BY_THE_RUN"}'
 ```
 
-The API runs the deterministic core on the server, and the web bundle imports only P1 types. Replay has zero network, LLM, and ledger-write side effects inside the recorded calculation. After the real version launch, append only public Japanese mobile ranking or official-interaction observations through the validated observation contract; never overwrite the Snapshot or preregistration.
+The API runs the deterministic core on the server by default. With `decisionMode: "llm"`, the same OpenAI-compatible Adapter used by P0 receives a P1-specific structured action contract; it calls the provider serially for every non-seed Agent in Control, then every non-seed Agent in Treatment. Replay reads the completed pair recorded in the current API session and never calls the provider; use Export JSON for a durable artifact. After the real version launch, append only public Japanese mobile ranking or official-interaction observations through the validated observation contract; never overwrite the Snapshot or preregistration.
 
 ## Requirements
 
@@ -77,9 +83,9 @@ Replay recalculates metrics from recorded events. Its output records `llmCalls: 
 
 ## OpenAI-compatible adapter
 
-Set `PROGRAM_E_AI_BASE_URL`, `PROGRAM_E_AI_API_KEY`, and `PROGRAM_E_AI_MODEL` in `.env`, then submit a run with `decisionMode: "llm"`. For the MiniMax China Token Plan, use `https://api.minimaxi.com/v1`, a Token Plan subscription key, and `MiniMax-M2.7`. The subscription key is not interchangeable with a pay-as-you-go API key. The single adapter uses `POST /chat/completions`, enforces a strict JSON Schema locally, validates cited Claim/Evidence IDs against the observation, retries invalid output twice, then records `IDLE`. Each attempt records its request/explicit-response hash, separate Schema/reference result, failure code and Token usage; usage is aggregated across retries. Provider HTTP/network errors fail directly.
+Set `PROGRAM_E_AI_BASE_URL`, `PROGRAM_E_AI_API_KEY`, `PROGRAM_E_AI_MODEL`, and a separate random `PROGRAM_E_AI_RUN_TOKEN` in `.env`, then submit a run with `decisionMode: "llm"` and the token in `x-agorasim-run-token`. For the MiniMax China Token Plan, use `https://api.minimaxi.com/v1`, a Token Plan subscription key, and `MiniMax-M2.7`. The subscription key is not interchangeable with a pay-as-you-go API key. Before a P1 LLM pair, the Adapter sends one minimal health probe and starts Control only after HTTP 200. The single adapter uses `POST /chat/completions`, enforces a strict JSON Schema locally, validates cited references against the observation, retries invalid output twice, then records an audited `IDLE`. Provider HTTP/network errors, including 429/529 and the 30-second request timeout, fail directly without switching models or restarting the pair. P1 permits only one LLM pair at a time and retains at most 16 in-session Replay records.
 
-The Prompt never requests chain-of-thought. MiniMax documents that M2.x thinking cannot be disabled, so the adapter requests `reasoning_split` only to keep provider-generated reasoning outside the explicit action. MiniMax does not document native `response_format: json_schema` support, but does document `tools`, `tool_choice` and JSON-encoded `message.tool_calls[].function.arguments`; the Adapter therefore uses one forced action tool and `max_completion_tokens: 2048` for MiniMax. It parses and hashes only the function arguments. Provider `content`, `reasoning_content` and `reasoning_details` are immediately discarded, never hashed, persisted, exported, or shown. Only explicit decision summaries, visible references, reason codes and confidence enter the experiment record. A recorded response Fixture drives a complete paired integration test without paid calls.
+The Prompt never requests chain-of-thought. MiniMax documents that M2.x thinking cannot be disabled, so the adapter requests `reasoning_split` only to keep provider-generated reasoning outside the explicit action. MiniMax does not document native `response_format: json_schema` support, but does document `tools`, `tool_choice` and JSON-encoded `message.tool_calls[].function.arguments`; the Adapter therefore uses one forced action tool and `max_completion_tokens: 2048` for MiniMax. It parses and hashes only explicit action arguments. Provider `content`, `reasoning_content` and `reasoning_details` are immediately discarded, never hashed, persisted, exported, or shown. Only explicit decision summaries, visible references, reason codes and confidence enter the experiment record. Recorded responses drive P0 and P1 integration tests without paid calls.
 
 Official configuration sources: [Token Plan: other tools](https://platform.minimaxi.com/docs/token-plan/other-tools) and [OpenAI SDK](https://platform.minimaxi.com/docs/api-reference/text-openai-api).
 

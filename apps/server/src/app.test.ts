@@ -1,7 +1,7 @@
 import type { PairSummary, RunStore, StoredPair } from "./store.js";
 import { describe, expect, it } from "vitest";
 
-import { createApp, missingLlmProviderError, missingTestnetReceiptError } from "./app.js";
+import { createApp, missingLlmProviderError, missingPublishingLlmProviderError, missingTestnetReceiptError, publishingLlmAccessError } from "./app.js";
 
 class TestStore implements RunStore {
   async migrate() {}
@@ -22,6 +22,11 @@ describe("server", () => {
       required: ["PROGRAM_E_AI_BASE_URL", "PROGRAM_E_AI_API_KEY", "PROGRAM_E_AI_MODEL"],
     });
     expect(missingLlmProviderError("fixed-threshold")).toBeNull();
+    expect(missingPublishingLlmProviderError("llm")).toEqual({
+      error: "PUBLISHING_LLM_PROVIDER_NOT_CONFIGURED",
+      required: ["PROGRAM_E_AI_BASE_URL", "PROGRAM_E_AI_API_KEY", "PROGRAM_E_AI_MODEL"],
+    });
+    expect(missingPublishingLlmProviderError("deterministic")).toBeNull();
   });
 
   it("blocks testnet experiment execution until verified seed receipts are loaded", () => {
@@ -30,5 +35,13 @@ describe("server", () => {
       action: "Run pnpm seed:testnet, then restart the API to load the verified receipt fixture.",
     });
     expect(missingTestnetReceiptError("mock")).toBeNull();
+  });
+
+  it("requires a separate P1 run token and only one active LLM pair", () => {
+    expect(publishingLlmAccessError("llm", undefined, undefined, false)?.status).toBe(503);
+    expect(publishingLlmAccessError("llm", "secret", "wrong", false)?.status).toBe(401);
+    expect(publishingLlmAccessError("llm", "secret", "secret", true)?.status).toBe(409);
+    expect(publishingLlmAccessError("llm", "secret", "secret", false)).toBeNull();
+    expect(publishingLlmAccessError("deterministic", undefined, undefined, true)).toBeNull();
   });
 });

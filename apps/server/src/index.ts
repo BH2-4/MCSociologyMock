@@ -56,6 +56,7 @@ const server = createApp({
   store,
   x402,
   decisionAdapter,
+  publishingLlmRunToken: process.env.PROGRAM_E_AI_RUN_TOKEN,
   paymentMode: x402Mode,
   recordedSeedPayments,
 }).listen(port, (error?: Error) => {

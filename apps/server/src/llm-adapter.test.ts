@@ -40,6 +40,32 @@ function toolCompletion(argumentsJson: string, content = "provider reasoning tha
 }
 
 describe("OpenAI-compatible decision adapter", () => {
+  it("requires a successful minimal provider probe before a full run", async () => {
+    const fetchFixture = vi.fn<typeof fetch>().mockResolvedValue(new Response("", { status: 529 }));
+    const adapter = new OpenAiCompatibleDecisionAdapter({
+      baseUrl: "https://llm.invalid/v1",
+      apiKey: "test-only-key",
+      model: "fixture-model",
+    }, fetchFixture);
+
+    await expect(adapter.probeProvider()).rejects.toThrow("LLM health probe failed with 529");
+    expect(fetchFixture).toHaveBeenCalledTimes(1);
+  });
+
+  it("bounds provider calls with a timeout", async () => {
+    const fetchFixture = vi.fn<typeof fetch>((_input, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+    }));
+    const adapter = new OpenAiCompatibleDecisionAdapter({
+      baseUrl: "https://llm.invalid/v1",
+      apiKey: "test-only-key",
+      model: "fixture-model",
+      requestTimeoutMs: 1,
+    }, fetchFixture);
+
+    await expect(adapter.probeProvider()).rejects.toThrow("LLM request timed out after 1ms");
+  });
+
   it("retries schema errors twice and accepts a visible structured decision", async () => {
     const valid = JSON.stringify({
       action: "BUY",
@@ -297,5 +323,116 @@ describe("OpenAI-compatible decision adapter", () => {
     expect(result.treatment.decisions[0]?.responseHash).toMatch(/^[a-f0-9]{64}$/);
     expect(result.treatment.decisions[0]?.attemptAudit).toHaveLength(1);
     expect(fetchFixture).toHaveBeenCalled();
+  });
+
+  it("accepts the P1 publishing action schema through the same provider adapter", async () => {
+    const fetchFixture = vi.fn<typeof fetch>().mockResolvedValue(completion(JSON.stringify({
+      action: "PLAN_PULL",
+      target_ids: [],
+      source_ids: ["R14", "R15", "R16"],
+      message_id: "message:combat_value_first",
+      reason_code: "COMBAT_FIT",
+      confidence: 0.74,
+    })));
+    const adapter = new OpenAiCompatibleDecisionAdapter({
+      baseUrl: "https://llm.invalid/v1",
+      apiKey: "test-only-key",
+      model: "fixture-model",
+    }, fetchFixture);
+
+    const result = await adapter.decidePublishingForRunner({
+      agent: {
+        id: "jp-consumer-03", index: 2, segment: "budget-constrained", activityStatus: "ACTIVE", platformPreference: "MOBILE",
+        rosterNeed: 0.6, combatPreference: 0.7, characterAffinity: 0.4, cosmeticAffinity: 0.3,
+        pullBudget: 120, ownedCurrency: 80, guaranteeState: "NONE", spendPropensity: 0.5, returnFriction: 0.2, sourceTrust: 0.7,
+      },
+      tick: 4,
+      message: { id: "message:combat_value_first", sourceIds: ["R14", "R15", "R16"], positioning: "COMBAT_VALUE_FIRST", order: ["combat-context", "character-context", "offer-context"], blocks: [] },
+      facts: [],
+      visibleSourceIds: ["R14", "R15", "R16"],
+      allowedActions: ["PLAN_PULL", "SAVE", "SKIP", "IDLE"],
+      allowedTargetIds: [],
+      currentBalance: 130,
+    });
+
+    expect(result).toEqual(expect.objectContaining({
+      action: "PLAN_PULL",
+      targetIds: [],
+      sourceIds: ["R14", "R15", "R16"],
+      messageId: "message:combat_value_first",
+      reasonCode: "COMBAT_FIT",
+      confidence: 0.74,
+      provider: "openai-compatible",
+      model: "fixture-model",
+      attempts: 1,
+      schemaFailed: false,
+    }));
+    expect(result.requestHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(result.responseHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(result.attemptAudit).toHaveLength(1);
+    expect(fetchFixture).toHaveBeenCalledTimes(1);
+  });
+
+  it("records P1 IDLE after two schema retries without switching provider", async () => {
+    const fetchFixture = vi.fn<typeof fetch>().mockImplementation(async () => completion("not-json"));
+    const adapter = new OpenAiCompatibleDecisionAdapter({
+      baseUrl: "https://llm.invalid/v1",
+      apiKey: "test-only-key",
+      model: "fixture-model",
+    }, fetchFixture);
+
+    const result = await adapter.decidePublishing({
+      agent: {
+        id: "jp-consumer-03", index: 2, segment: "budget-constrained", activityStatus: "ACTIVE", platformPreference: "MOBILE",
+        rosterNeed: 0.6, combatPreference: 0.7, characterAffinity: 0.4, cosmeticAffinity: 0.3,
+        pullBudget: 120, ownedCurrency: 80, guaranteeState: "NONE", spendPropensity: 0.5, returnFriction: 0.2, sourceTrust: 0.7,
+      },
+      tick: 4,
+      message: { id: "message:combat_value_first", sourceIds: ["R14", "R15", "R16"], positioning: "COMBAT_VALUE_FIRST", order: ["combat-context", "character-context", "offer-context"], blocks: [] },
+      facts: [],
+      visibleSourceIds: ["R14", "R15", "R16"],
+      allowedActions: ["PLAN_PULL", "SAVE", "SKIP", "IDLE"],
+      allowedTargetIds: [],
+      currentBalance: 130,
+    });
+
+    expect(result.decision.action).toBe("IDLE");
+    expect(result.decision.message_id).toBe("message:combat_value_first");
+    expect(result.decision.source_ids).toEqual(["R14", "R15", "R16"]);
+    expect(result.schemaFailed).toBe(true);
+    expect(result.attemptAudit.every((attempt) => attempt.failureCode === "SCHEMA_INVALID")).toBe(true);
+    expect(fetchFixture).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries P1 references that were not visible before accepting a valid response", async () => {
+    const decision = (sourceIds: string[]) => completion(JSON.stringify({
+      action: "PLAN_PULL", target_ids: [], source_ids: sourceIds,
+      message_id: "message:combat_value_first", reason_code: "COMBAT_FIT", confidence: 0.7,
+    }));
+    const fetchFixture = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(decision(["R99"]))
+      .mockResolvedValueOnce(decision(["R14"]));
+    const adapter = new OpenAiCompatibleDecisionAdapter({
+      baseUrl: "https://llm.invalid/v1", apiKey: "test-only-key", model: "fixture-model",
+    }, fetchFixture);
+
+    const result = await adapter.decidePublishing({
+      agent: {
+        id: "jp-consumer-03", index: 2, segment: "budget-constrained", activityStatus: "ACTIVE", platformPreference: "MOBILE",
+        rosterNeed: 0.6, combatPreference: 0.7, characterAffinity: 0.4, cosmeticAffinity: 0.3,
+        pullBudget: 120, ownedCurrency: 80, guaranteeState: "NONE", spendPropensity: 0.5, returnFriction: 0.2, sourceTrust: 0.7,
+      },
+      tick: 4,
+      message: { id: "message:combat_value_first", sourceIds: ["R14", "R15", "R16"], positioning: "COMBAT_VALUE_FIRST", order: ["combat-context", "character-context", "offer-context"], blocks: [] },
+      facts: [],
+      visibleSourceIds: ["R14", "R15", "R16"],
+      allowedActions: ["PLAN_PULL", "SAVE", "SKIP", "SIMULATED_TOP_UP", "IDLE"],
+      allowedTargetIds: [],
+      currentBalance: 130,
+    });
+
+    expect(result.decision.source_ids).toEqual(["R14"]);
+    expect(result.attempts).toBe(2);
+    expect(result.attemptAudit.map((attempt) => attempt.failureCode)).toEqual(["REFERENCE_INVALID", null]);
   });
 });

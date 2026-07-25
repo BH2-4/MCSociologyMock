@@ -1,4 +1,5 @@
 import { hashObject, keyedRandom } from "./determinism.js";
+import type { LlmAttemptAudit } from "./model.js";
 import { createPublishingSnapshot, type PublishingSnapshot } from "./publishing-data.js";
 
 export const PUBLISHING_ACTIONS = [
@@ -161,6 +162,42 @@ export interface PublishingBranchRun {
   ledger: SyntheticSpendLedgerEntry[];
   metrics: PublishingMetrics;
 }
+
+export interface PublishingDecisionRequest {
+  agent: Pick<PublishingAgent, "id" | "index" | "segment" | "activityStatus" | "platformPreference" | "rosterNeed" | "combatPreference" | "characterAffinity" | "cosmeticAffinity" | "pullBudget" | "ownedCurrency" | "guaranteeState" | "spendPropensity" | "returnFriction" | "sourceTrust">;
+  tick: 4;
+  message: {
+    id: string;
+    sourceIds: readonly string[];
+    positioning: MessagePositioning;
+    order: readonly string[];
+    blocks: readonly ReleaseMessageBlock[];
+  };
+  facts: readonly ReleaseFactSlot[];
+  visibleSourceIds: readonly string[];
+  allowedActions: readonly PublishingAction[];
+  allowedTargetIds: readonly string[];
+  currentBalance: number;
+}
+
+export interface PublishingExternalDecision {
+  action: PublishingAction;
+  targetIds: string[];
+  sourceIds: string[];
+  messageId: string;
+  reasonCode: string;
+  confidence: number;
+  provider?: "openai-compatible";
+  model?: string;
+  requestHash?: string;
+  responseHash?: string | null;
+  attempts?: number;
+  attemptAudit?: LlmAttemptAudit[];
+  schemaFailed?: boolean;
+  usage?: { promptTokens: number; completionTokens: number } | null;
+}
+
+export type PublishingDecisionAdapter = (request: PublishingDecisionRequest) => Promise<PublishingExternalDecision>;
 
 export interface PublishingPairResult {
   snapshot: PublishingSnapshot;
@@ -402,6 +439,7 @@ function positioningScore(agent: PublishingAgent, positioning: MessagePositionin
 }
 
 const EXPLORATION_ACTIONS: readonly PublishingAction[] = ["ASK", "CHAT", "POST", "SHARE", "SAVE", "SKIP", "IDLE"];
+const PUBLISHING_DECISION_ACTIONS: readonly PublishingAction[] = ["PLAN_PULL", "SAVE", "SKIP", "SIMULATED_TOP_UP", "IDLE"];
 
 function metricsFor(run: Pick<PublishingBranchRun, "agents" | "events" | "ledger">): PublishingMetrics {
   const nonSeed = new Set(run.agents.filter((agent) => !agent.isSeed).map((agent) => agent.id));
@@ -425,7 +463,45 @@ function metricsFor(run: Pick<PublishingBranchRun, "agents" | "events" | "ledger
   };
 }
 
-function runPublishingBranch(config: PublishingBranchConfig): PublishingBranchRun {
+function validatePublishingExternalDecision(
+  request: PublishingDecisionRequest,
+  decision: PublishingExternalDecision,
+): string | null {
+  if (!PUBLISHING_ACTIONS.includes(decision.action) || !request.allowedActions.includes(decision.action)) return "ACTION_NOT_ALLOWED";
+  if (!decision.messageId || decision.messageId !== request.message.id) return "MESSAGE_NOT_VISIBLE";
+  if (decision.sourceIds.length === 0) return "SOURCE_REFERENCE_REQUIRED";
+  if (decision.sourceIds.some((sourceId) => !request.visibleSourceIds.includes(sourceId))) return "SOURCE_NOT_VISIBLE";
+  if (decision.targetIds.length > 0) return "TARGET_NOT_ALLOWED_AT_PULL_DECISION";
+  if (!Number.isFinite(decision.confidence) || decision.confidence < 0 || decision.confidence > 1) return "CONFIDENCE_INVALID";
+  if (decision.action === "SIMULATED_TOP_UP" && request.currentBalance >= 180) return "TOP_UP_NOT_NEEDED";
+  return null;
+}
+
+function publishingDecisionRequest(config: PublishingBranchConfig, agent: PublishingAgent): PublishingDecisionRequest {
+  return {
+    agent,
+    tick: 4,
+    message: {
+      id: `message:${config.messagePositioning.toLowerCase()}`,
+      sourceIds: ["R14", "R15", "R16"],
+      positioning: config.messagePositioning,
+      order: config.messageOrder,
+      blocks: config.messageOrder.map((blockId) => config.messageBlocks.find((block) => block.id === blockId)!),
+    },
+    facts: config.factSlots,
+    visibleSourceIds: ["R14", "R15", "R16"],
+    allowedActions: PUBLISHING_DECISION_ACTIONS.filter((action) => action !== "SIMULATED_TOP_UP" || agent.ownedCurrency + 50 < 180),
+    allowedTargetIds: config.relationships
+      .filter((relationship) => relationship.sourceId === agent.id)
+      .map((relationship) => relationship.targetId),
+    currentBalance: agent.ownedCurrency + 50,
+  };
+}
+
+function runPublishingBranch(
+  config: PublishingBranchConfig,
+  externalDecisions: ReadonlyMap<string, PublishingExternalDecision> = new Map(),
+): PublishingBranchRun {
   const events: PublishingEvent[] = [];
   const ledger: SyntheticSpendLedgerEntry[] = [];
   const exposedMessages = new Map<string, string>();
@@ -501,21 +577,39 @@ function runPublishingBranch(config: PublishingBranchConfig): PublishingBranchRu
 
   for (const agent of config.agents.filter((candidate) => !candidate.isSeed)) {
     const score = positioningScore(agent, config.messagePositioning, config.protocolSeed);
-    const action: PublishingAction = score >= 0.61 ? "PLAN_PULL" : score < 0.43 ? "SKIP" : "SAVE";
+    const external = externalDecisions.get(agent.id);
+    const action: PublishingAction = external?.action ?? (score >= 0.61 ? "PLAN_PULL" : score < 0.43 ? "SKIP" : "SAVE");
     const decision = addEvent({
       tick: 4,
       type: "PULL_DECISION_RECORDED",
       actorId: agent.id,
       action,
       messageId,
-      sourceIds,
+      sourceIds: external?.sourceIds ?? sourceIds,
       causedByEventId: exposedMessages.get(agent.id),
-      payload: { score, reasonCode: action === "PLAN_PULL" ? "POSITIONING_FIT" : action === "SAVE" ? "WAIT_AND_COMPARE" : "LOW_FIT_OR_BUDGET" },
+      payload: {
+        score,
+        reasonCode: external?.reasonCode ?? (action === "PLAN_PULL" ? "POSITIONING_FIT" : action === "SAVE" ? "WAIT_AND_COMPARE" : "LOW_FIT_OR_BUDGET"),
+        confidence: external?.confidence,
+        decisionSource: external ? "llm" : "deterministic",
+        sourceIds: external?.sourceIds ?? sourceIds,
+        messageId,
+        targetIds: external?.targetIds ?? [],
+        provider: external?.provider,
+        model: external?.model,
+        requestHash: external?.requestHash,
+        responseHash: external?.responseHash,
+        attempts: external?.attempts,
+        attemptAudit: external?.attemptAudit,
+        schemaFailed: external?.schemaFailed,
+        usage: external?.usage,
+      },
     });
-    if (action === "PLAN_PULL") {
-      addLedger(agent, 4, "PLANNED_PULL", 0, false, "MODEL_DECISION", decision.eventId);
+    if (action === "PLAN_PULL" || action === "SIMULATED_TOP_UP") {
+      if (action === "PLAN_PULL") addLedger(agent, 4, "PLANNED_PULL", 0, false, "MODEL_DECISION", decision.eventId);
       const available = balances.get(agent.id) ?? 0;
-      if (available < 180 && score * agent.spendPropensity >= 0.29) {
+      const explicitTopUp = action === "SIMULATED_TOP_UP";
+      if (available < 180 && (explicitTopUp || score * agent.spendPropensity >= 0.29)) {
         const topUp = Math.min(agent.pullBudget, 180 - available);
         if (topUp > 0) addLedger(agent, 5, "SIMULATED_TOP_UP", topUp, true, "MODEL_DECISION", decision.eventId);
       }
@@ -560,6 +654,61 @@ export function runPublishingPair(protocolSeed: string, agentCount = 24): Publis
   if (!branchDiffReport.pass) throw new Error("PUBLISHING_BRANCH_DIFF_FAILED");
   const control = runPublishingBranch(controlConfig);
   const treatment = runPublishingBranch(treatmentConfig);
+  const allEvents = [...control.events, ...treatment.events];
+  const actionCoverage = Object.fromEntries(PUBLISHING_ACTIONS.map((action) => [
+    action,
+    allEvents.some((event) => event.action === action),
+  ])) as Record<PublishingAction, boolean>;
+  const validSources = new Set(snapshot.sources.map((source) => source.sourceId));
+  return {
+    snapshot,
+    protocol,
+    localizationGate,
+    branchDiffReport,
+    control,
+    treatment,
+    pairedEffect: treatment.metrics.simulatedCharacterSpend - control.metrics.simulatedCharacterSpend,
+    status: "AWAITING_POSTLAUNCH_OBSERVATION",
+    validation: {
+      populationParity: parityHash(control.agents) === parityHash(treatment.agents),
+      networkParity: parityHash(control.relationships) === parityHash(treatment.relationships),
+      sourceReferencesValid: allEvents.every((event) => event.sourceIds.every((sourceId) => validSources.has(sourceId as "R14"))),
+      ledgerConserved: ledgerIsConserved(control) && ledgerIsConserved(treatment),
+      actionCoverage,
+    },
+    disclaimer: "合成模拟与移动端公开代理，不代表日本全平台或单角色真实流水",
+  };
+}
+
+export async function runPublishingPairWithDecisionAdapter(
+  protocolSeed: string,
+  adapter: PublishingDecisionAdapter,
+  agentCount = 24,
+): Promise<PublishingPairResult> {
+  const snapshot = createPublishingSnapshot();
+  const protocol = lockPublishingProtocol(protocolSeed, snapshot);
+  const agents = createPublishingPopulation(agentCount);
+  const controlConfig = createPublishingBranchConfig(protocol, "control", agents);
+  const treatmentConfig = createPublishingBranchConfig(protocol, "treatment", agents);
+  const localizationGate = validateLocalizationGate(controlConfig, treatmentConfig);
+  const branchDiffReport = validatePublishingBranchDiff(controlConfig, treatmentConfig);
+  if (!localizationGate.pass) throw new Error(`LOCALIZATION_GATE_FAILED:${localizationGate.illegalDifferences.join(",")}`);
+  if (!branchDiffReport.pass) throw new Error("PUBLISHING_BRANCH_DIFF_FAILED");
+
+  const resolveBranch = async (config: PublishingBranchConfig) => {
+    const decisions = new Map<string, PublishingExternalDecision>();
+    for (const agent of config.agents.filter((candidate) => !candidate.isSeed)) {
+      const request = publishingDecisionRequest(config, agent);
+      const decision = await adapter(request);
+      const invalid = validatePublishingExternalDecision(request, decision);
+      if (invalid) throw new Error(`PUBLISHING_DECISION_INVALID:${invalid}`);
+      decisions.set(agent.id, decision);
+    }
+    return runPublishingBranch(config, decisions);
+  };
+
+  const control = await resolveBranch(controlConfig);
+  const treatment = await resolveBranch(treatmentConfig);
   const allEvents = [...control.events, ...treatment.events];
   const actionCoverage = Object.fromEntries(PUBLISHING_ACTIONS.map((action) => [
     action,

@@ -6,11 +6,15 @@ import {
   replayPublishingPair,
   replayPairedExperiment,
   runPublishingPair,
+  runPublishingPairWithDecisionAdapter,
   runPairedExperiment,
   runPairedExperimentWithDecisionAdapter,
   type DecisionRequest,
   type ExternalDecision,
   type RecordedSeedPayment,
+  type PublishingDecisionRequest,
+  type PublishingExternalDecision,
+  type PublishingPairResult,
 } from "@agorasim/core";
 import { z } from "zod";
 
@@ -26,6 +30,11 @@ const runRequestSchema = z.object({
 const publishingRunRequestSchema = z.object({
   protocolSeed: z.string().min(1).max(64).regex(/^[a-zA-Z0-9_-]+$/),
   agentCount: z.union([z.literal(4), z.literal(24)]).default(24),
+  decisionMode: z.enum(["deterministic", "llm"]).default("deterministic"),
+}).strict();
+
+const publishingReplayRequestSchema = z.object({
+  pairId: z.string().min(1).max(80).regex(/^[a-zA-Z0-9_-]+$/),
 }).strict();
 
 function pairIdFor(protocolSeed: string, decisionMode: string, paymentFingerprint: string): string {
@@ -48,6 +57,8 @@ function summaryFor(pairId: string, result: ReturnType<typeof runPairedExperimen
 
 interface RunnerDecisionAdapter {
   decideForRunner(request: DecisionRequest): Promise<ExternalDecision>;
+  decidePublishingForRunner?(request: PublishingDecisionRequest): Promise<PublishingExternalDecision>;
+  probeProvider?(): Promise<void>;
 }
 
 export function missingLlmProviderError(
@@ -58,6 +69,29 @@ export function missingLlmProviderError(
     error: "LLM_PROVIDER_NOT_CONFIGURED",
     required: ["PROGRAM_E_AI_BASE_URL", "PROGRAM_E_AI_API_KEY", "PROGRAM_E_AI_MODEL"],
   } : null;
+}
+
+export function missingPublishingLlmProviderError(
+  decisionMode: "deterministic" | "llm",
+  decisionAdapter?: RunnerDecisionAdapter,
+) {
+  return decisionMode === "llm" && !decisionAdapter?.decidePublishingForRunner ? {
+    error: "PUBLISHING_LLM_PROVIDER_NOT_CONFIGURED",
+    required: ["PROGRAM_E_AI_BASE_URL", "PROGRAM_E_AI_API_KEY", "PROGRAM_E_AI_MODEL"],
+  } : null;
+}
+
+export function publishingLlmAccessError(
+  decisionMode: "deterministic" | "llm",
+  configuredToken: string | undefined,
+  suppliedToken: string | undefined,
+  inProgress: boolean,
+) {
+  if (decisionMode !== "llm") return null;
+  if (!configuredToken) return { status: 503, error: "PUBLISHING_LLM_RUN_TOKEN_NOT_CONFIGURED" } as const;
+  if (suppliedToken !== configuredToken) return { status: 401, error: "PUBLISHING_LLM_RUN_UNAUTHORIZED" } as const;
+  if (inProgress) return { status: 409, error: "PUBLISHING_LLM_RUN_IN_PROGRESS" } as const;
+  return null;
 }
 
 export function missingTestnetReceiptError(
@@ -74,16 +108,20 @@ export function createApp({
   store,
   x402,
   decisionAdapter,
+  publishingLlmRunToken,
   paymentMode = "mock",
   recordedSeedPayments,
 }: {
   store: RunStore;
   x402?: X402ResourceConfig;
   decisionAdapter?: RunnerDecisionAdapter;
+  publishingLlmRunToken?: string;
   paymentMode?: "mock" | "testnet";
   recordedSeedPayments?: RecordedSeedPayment[];
 }) {
   const app = express();
+  const publishingRuns = new Map<string, PublishingPairResult>();
+  let publishingLlmRunInProgress = false;
   app.use(cors());
   app.use(express.json({ limit: "64kb" }));
   if (x402) registerX402Resource(app, x402);
@@ -92,27 +130,77 @@ export function createApp({
     response.json({ status: "ok", storage: "postgresql", simulation: "paired-p0" });
   });
 
-  app.post("/v1/experiments/zzz-3.1-jp/runs", (request, response) => {
+  app.post("/v1/experiments/zzz-3.1-jp/runs", async (request, response) => {
     const parsed = publishingRunRequestSchema.safeParse(request.body);
     if (!parsed.success) {
       response.status(400).json({ error: "INVALID_PUBLISHING_RUN_REQUEST", issues: parsed.error.issues });
       return;
     }
-    const result = runPublishingPair(parsed.data.protocolSeed, parsed.data.agentCount);
+    const configurationError = missingPublishingLlmProviderError(parsed.data.decisionMode, decisionAdapter);
+    if (configurationError) {
+      response.status(503).json(configurationError);
+      return;
+    }
+    const accessError = publishingLlmAccessError(
+      parsed.data.decisionMode,
+      publishingLlmRunToken,
+      request.header("x-agorasim-run-token"),
+      publishingLlmRunInProgress,
+    );
+    if (accessError) {
+      response.status(accessError.status).json({ error: accessError.error });
+      return;
+    }
+    if (parsed.data.decisionMode === "llm") {
+      publishingLlmRunInProgress = true;
+    }
+    let result: PublishingPairResult;
+    try {
+      if (parsed.data.decisionMode === "llm") {
+        await decisionAdapter!.probeProvider?.();
+        result = await runPublishingPairWithDecisionAdapter(
+          parsed.data.protocolSeed,
+          (observation) => decisionAdapter!.decidePublishingForRunner!(observation),
+          parsed.data.agentCount,
+        );
+      } else {
+        result = runPublishingPair(parsed.data.protocolSeed, parsed.data.agentCount);
+      }
+    } catch (error) {
+      response.status(502).json({
+        error: "PUBLISHING_RUN_FAILED",
+        reason: error instanceof Error ? error.message : "UNKNOWN_PROVIDER_ERROR",
+      });
+      return;
+    } finally {
+      if (parsed.data.decisionMode === "llm") publishingLlmRunInProgress = false;
+    }
+    const eventHash = hashObject({ control: result.control.events, treatment: result.treatment.events });
+    const pairId = `zzz-jp-${hashObject({ seed: parsed.data.protocolSeed, agentCount: parsed.data.agentCount, decisionMode: parsed.data.decisionMode, eventHash }).slice(0, 16)}`;
+    if (!publishingRuns.has(pairId) && publishingRuns.size >= 16) {
+      const oldestPairId = publishingRuns.keys().next().value as string | undefined;
+      if (oldestPairId) publishingRuns.delete(oldestPairId);
+    }
+    publishingRuns.set(pairId, result);
     response.status(201).json({
-      pairId: `zzz-jp-${hashObject({ seed: parsed.data.protocolSeed, agentCount: parsed.data.agentCount }).slice(0, 16)}`,
+      pairId,
+      decisionMode: parsed.data.decisionMode,
       result,
       report: createPublishingReport(result),
     });
   });
 
   app.post("/v1/experiments/zzz-3.1-jp/replay", (request, response) => {
-    const parsed = publishingRunRequestSchema.safeParse(request.body);
+    const parsed = publishingReplayRequestSchema.safeParse(request.body);
     if (!parsed.success) {
       response.status(400).json({ error: "INVALID_PUBLISHING_REPLAY_REQUEST", issues: parsed.error.issues });
       return;
     }
-    const result = runPublishingPair(parsed.data.protocolSeed, parsed.data.agentCount);
+    const result = publishingRuns.get(parsed.data.pairId);
+    if (!result) {
+      response.status(404).json({ error: "PUBLISHING_PAIR_NOT_FOUND", action: "Run the pair in this API session before Replay." });
+      return;
+    }
     response.json({ replay: replayPublishingPair(result) });
   });
 

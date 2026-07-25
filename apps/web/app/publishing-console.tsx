@@ -54,6 +54,7 @@ export function PublishingConsole({ initialResult, initialReport }: { initialRes
   const [workspace, setWorkspace] = useState<Workspace>("market");
   const [running, setRunning] = useState(false);
   const [replay, setReplay] = useState<PublishingReplayResult | null>(null);
+  const [pairId, setPairId] = useState<string | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<"control" | "treatment">("control");
   const [error, setError] = useState<string | null>(null);
   const branch = result[selectedBranch];
@@ -69,8 +70,9 @@ export function PublishingConsole({ initialResult, initialReport }: { initialRes
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ protocolSeed: seed, agentCount }),
       });
-      const body = await response.json() as { result?: PublishingPairResult; report?: PublishingReport; error?: string };
-      if (!response.ok || !body.result || !body.report) throw new Error(body.error ?? `P1 API returned ${response.status}`);
+      const body = await response.json() as { pairId?: string; result?: PublishingPairResult; report?: PublishingReport; error?: string };
+      if (!response.ok || !body.pairId || !body.result || !body.report) throw new Error(body.error ?? `P1 API returned ${response.status}`);
+      setPairId(body.pairId);
       setResult(body.result);
       setReport(body.report);
       setReplay(null);
@@ -85,10 +87,11 @@ export function PublishingConsole({ initialResult, initialReport }: { initialRes
   async function replayCurrent() {
     setError(null);
     try {
+      if (!pairId) throw new Error("Run a P1 pair in this API session before Replay.");
       const response = await fetch(`${API_URL}/v1/experiments/zzz-3.1-jp/replay`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ protocolSeed: result.protocol.protocolSeed, agentCount: result.control.agents.length }),
+        body: JSON.stringify({ pairId }),
       });
       const body = await response.json() as { replay?: PublishingReplayResult; error?: string };
       if (!response.ok || !body.replay) throw new Error(body.error ?? `P1 Replay returned ${response.status}`);
@@ -247,7 +250,7 @@ export function PublishingConsole({ initialResult, initialReport }: { initialRes
           </article>
           <article className="panel panel-wide">
             <div className="panel-heading"><div><span className="eyebrow">REPLAY & EXPORT</span><h2>结果可复现</h2></div><RotateCcw size={20} /></div>
-            <div className="outcome-actions"><button onClick={replayCurrent}><RotateCcw size={15} /> Replay</button><button onClick={downloadReport}><Download size={15} /> Export JSON</button></div>
+            <div className="outcome-actions"><button onClick={replayCurrent} disabled={!pairId}><RotateCcw size={15} /> Replay</button><button onClick={downloadReport}><Download size={15} /> Export JSON</button></div>
             {replay && <div className="replay-result"><span>Replay event hash</span><code>{short(replay.eventHash, 16)}</code><span>Network {replay.sideEffects.networkCalls} · LLM {replay.sideEffects.llmCalls} · Ledger writes {replay.sideEffects.ledgerWrites}</span></div>}
             <div className="limitation-list">{report.limitations.map((item) => <p key={item}><ShieldCheck size={14} />{item}</p>)}</div>
           </article>

@@ -54,8 +54,9 @@ Status date: 2026-07-25. P1 is implemented through the pre-launch waiting state;
 | Pre-launch waiting state | PASS | Snapshot, pair result, report and UI remain `AWAITING_POSTLAUNCH_OBSERVATION` with an empty observation list. |
 | Post-launch observation gate | PASS (contract) | `createPublicProxyObservation()` rejects early observations and validates source/time/value; report transitions only when all three points exist. |
 | Disclaimer and attribution boundary | PASS | UI footer, report disclaimer and README state that synthetic units and mobile proxies do not represent Japan all-platform or single-character revenue. |
-| Replay and export path | PASS | P1 Replay returns identical metrics and zero network/LLM/ledger side effects; UI exports the recorded report/result JSON. |
-| Automated verification | PASS (pre-launch) | 25 core tests, 46 server tests, Web typecheck, Next production build, and four P0/P1 Playwright journeys across desktop/mobile pass on a clean test port. |
+| Replay and export path | PASS | P1 Replay reads the completed pair recorded in the current API session, returns identical metrics with zero network/LLM/ledger side effects, and the UI exports durable report/result JSON. |
+| OpenAI-compatible P1 decision path | PASS | `runPublishingPairWithDecisionAdapter` runs Control then Treatment serially; the shared Adapter validates/retries action and visible references, records request/response hashes and attempt usage, requires a separate run token, permits one active pair, and bounds Replay memory. |
+| Automated verification | PASS (pre-launch) | 26 core tests, 52 server tests, Web typecheck, Next production build, and four P0/P1 Playwright journeys across desktop/mobile pass on a clean test port. |
 
 ### P1 remaining gate
 

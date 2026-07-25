@@ -7,6 +7,7 @@ import {
   PUBLISHING_ACTIONS,
   replayPublishingPair,
   runPublishingPair,
+  runPublishingPairWithDecisionAdapter,
   validateLocalizationGate,
   validatePublishingBranchDiff,
 } from "./publishing-experiment.js";
@@ -62,5 +63,29 @@ describe("publishing experiment", () => {
     expect(replay.pairedEffect).toBe(result.pairedEffect);
     expect(replay.eventHash).toMatch(/^[a-f0-9]{64}$/);
     expect(replay.sideEffects).toEqual({ networkCalls: 0, llmCalls: 0, ledgerWrites: 0 });
+  });
+
+  it("runs the LLM adapter serially for Control then Treatment with a fixed observation contract", async () => {
+    const calls: string[] = [];
+    const result = await runPublishingPairWithDecisionAdapter("llm-publishing-01", async (request) => {
+      calls.push(request.message.positioning);
+      if (request.currentBalance >= 180) expect(request.allowedActions).not.toContain("SIMULATED_TOP_UP");
+      return {
+        action: request.agent.index % 3 === 0 ? "PLAN_PULL" : "SAVE",
+        targetIds: [],
+        sourceIds: [...request.visibleSourceIds],
+        messageId: request.message.id,
+        reasonCode: "FIXTURE_DECISION",
+        confidence: 0.6,
+      };
+    }, 4);
+
+    expect(calls).toEqual([
+      "COMBAT_VALUE_FIRST", "COMBAT_VALUE_FIRST", "COMBAT_VALUE_FIRST",
+      "CHARACTER_AFFINITY_FIRST", "CHARACTER_AFFINITY_FIRST", "CHARACTER_AFFINITY_FIRST",
+    ]);
+    expect(result.validation.populationParity).toBe(true);
+    expect(result.validation.networkParity).toBe(true);
+    expect(result.control.events.some((event) => event.payload.decisionSource === "llm")).toBe(true);
   });
 });
