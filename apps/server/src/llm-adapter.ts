@@ -51,8 +51,10 @@ export interface OpenAiCompatibleConfig {
   apiKey: string;
   model: string;
   maxTokens?: number;
+  maxCompletionTokens?: number;
   temperature?: number;
   nativeJsonSchema?: boolean;
+  toolJsonSchema?: boolean;
   reasoningSplit?: boolean;
 }
 
@@ -83,6 +85,8 @@ const responseJsonSchema = {
     },
   },
 } as const;
+
+const actionToolName = "submit_agorasim_action";
 
 function idleDecision(): LlmDecision {
   return {
@@ -126,15 +130,29 @@ export class OpenAiCompatibleDecisionAdapter {
     const requestBody = {
       model: this.#config.model,
       temperature: this.#config.temperature ?? 0,
-      max_tokens: this.#config.maxTokens ?? 500,
+      ...(this.#config.maxCompletionTokens
+        ? { max_completion_tokens: this.#config.maxCompletionTokens }
+        : { max_tokens: this.#config.maxTokens ?? 500 }),
       ...(this.#config.reasoningSplit ? { reasoning_split: true } : {}),
-      ...(this.#config.nativeJsonSchema === false ? {} : {
+      ...(this.#config.toolJsonSchema ? {
+        tools: [{
+          type: "function",
+          function: {
+            name: actionToolName,
+            description: "Submit the Agent's single observable action and explicit decision summary.",
+            parameters: responseJsonSchema.schema,
+          },
+        }],
+        tool_choice: "required",
+      } : this.#config.nativeJsonSchema === false ? {} : {
         response_format: { type: "json_schema", json_schema: responseJsonSchema },
       }),
       messages: [
         {
           role: "system",
-          content: `Choose one allowed action from visible information. Return only JSON matching this schema: ${JSON.stringify(responseJsonSchema.schema)}. Report a short decision summary and reason codes; do not provide hidden reasoning or chain-of-thought.`,
+          content: this.#config.toolJsonSchema
+            ? "Choose one allowed action from visible information and call submit_agorasim_action once. Report only an explicit decision summary and reason codes; do not provide hidden reasoning or chain-of-thought."
+            : `Choose one allowed action from visible information. Return only JSON matching this schema: ${JSON.stringify(responseJsonSchema.schema)}. Report a short decision summary and reason codes; do not provide hidden reasoning or chain-of-thought.`,
         },
         { role: "user", content: JSON.stringify(observation) },
       ],
@@ -156,14 +174,25 @@ export class OpenAiCompatibleDecisionAdapter {
       let content: string;
       try {
         const body = JSON.parse(rawBody) as {
-          choices?: Array<{ message?: { content?: string } }>;
+          choices?: Array<{ message?: {
+            content?: string;
+            tool_calls?: Array<{
+              type?: string;
+              function?: { name?: string; arguments?: string };
+            }>;
+          } }>;
           usage?: { prompt_tokens?: number; completion_tokens?: number };
         };
         usage = body.usage ? {
           promptTokens: body.usage.prompt_tokens ?? 0,
           completionTokens: body.usage.completion_tokens ?? 0,
         } : null;
-        content = body.choices?.[0]?.message?.content as string;
+        const message = body.choices?.[0]?.message;
+        content = this.#config.toolJsonSchema
+          ? message?.tool_calls?.find((call) =>
+            call.type === "function" && call.function?.name === actionToolName
+          )?.function?.arguments as string
+          : message?.content as string;
         if (typeof content !== "string") throw new Error("LLM response has no JSON content");
         responseHash = hashObject(content);
         lastResponseHash = responseHash;

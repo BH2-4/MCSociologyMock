@@ -21,12 +21,15 @@ const llmValues = [
   process.env.PROGRAM_E_AI_API_KEY,
   process.env.PROGRAM_E_AI_MODEL,
 ];
+const isMiniMaxModel = process.env.PROGRAM_E_AI_MODEL?.startsWith("MiniMax-") ?? false;
 const decisionAdapter = llmValues.every(Boolean) ? new OpenAiCompatibleDecisionAdapter({
   baseUrl: process.env.PROGRAM_E_AI_BASE_URL!,
   apiKey: process.env.PROGRAM_E_AI_API_KEY!,
   model: process.env.PROGRAM_E_AI_MODEL!,
+  maxCompletionTokens: isMiniMaxModel ? 2048 : undefined,
   nativeJsonSchema: false,
-  reasoningSplit: process.env.PROGRAM_E_AI_MODEL!.startsWith("MiniMax-"),
+  toolJsonSchema: isMiniMaxModel,
+  reasoningSplit: isMiniMaxModel,
 }) : undefined;
 
 const x402Mode = process.env.X402_MODE ?? "mock";

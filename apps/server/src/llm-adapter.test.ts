@@ -1,4 +1,4 @@
-import { runPairedExperimentWithDecisionAdapter } from "@agorasim/core";
+import { hashObject, runPairedExperimentWithDecisionAdapter } from "@agorasim/core";
 import { describe, expect, it, vi } from "vitest";
 
 import { OpenAiCompatibleDecisionAdapter, type LlmObservation } from "./llm-adapter.js";
@@ -22,6 +22,20 @@ function completion(content: string): Response {
   return new Response(JSON.stringify({
     choices: [{ message: { content } }],
     usage: { prompt_tokens: 100, completion_tokens: 40 },
+  }), { status: 200, headers: { "Content-Type": "application/json" } });
+}
+
+function toolCompletion(argumentsJson: string, content = "provider reasoning that must be ignored"): Response {
+  return new Response(JSON.stringify({
+    choices: [{ message: {
+      content,
+      reasoning_content: "provider-internal-content",
+      tool_calls: [{
+        type: "function",
+        function: { name: "submit_agorasim_action", arguments: argumentsJson },
+      }],
+    } }],
+    usage: { prompt_tokens: 120, completion_tokens: 50 },
   }), { status: 200, headers: { "Content-Type": "application/json" } });
 }
 
@@ -190,6 +204,7 @@ describe("OpenAI-compatible decision adapter", () => {
       baseUrl: "https://llm.invalid/v1",
       apiKey: "test-only-key",
       model: "fixture-model",
+      maxCompletionTokens: 2048,
       nativeJsonSchema: false,
     }, fetchFixture);
 
@@ -197,7 +212,51 @@ describe("OpenAI-compatible decision adapter", () => {
 
     const body = JSON.parse(String(fetchFixture.mock.calls[0]?.[1]?.body));
     expect(body.response_format).toBeUndefined();
+    expect(body.max_tokens).toBeUndefined();
+    expect(body.max_completion_tokens).toBe(2048);
     expect(body.messages[0].content).toContain("Return only JSON matching this schema");
+  });
+
+  it("uses a function tool for providers that support tools but not response_format", async () => {
+    const valid = JSON.stringify({
+      action: "BUY",
+      target_ids: ["merchant-01"],
+      content: "",
+      decision_summary: {
+        observed_claim_ids: ["claim-01"],
+        observed_evidence_ids: ["evidence-01"],
+        credibility_assessment: 0.78,
+        reason_codes: ["RECEIPT_VERIFIED", "PRICE_ACCEPTABLE"],
+        expected_outcome: "Receive one simulated Eco Cup.",
+        confidence: 0.72,
+      },
+    });
+    const fetchFixture = vi.fn<typeof fetch>().mockResolvedValue(toolCompletion(valid));
+    const adapter = new OpenAiCompatibleDecisionAdapter({
+      baseUrl: "https://llm.invalid/v1",
+      apiKey: "test-only-key",
+      model: "fixture-model",
+      nativeJsonSchema: false,
+      toolJsonSchema: true,
+      reasoningSplit: true,
+    }, fetchFixture);
+
+    const result = await adapter.decide(observation);
+    const body = JSON.parse(String(fetchFixture.mock.calls[0]?.[1]?.body));
+
+    expect(result.decision.action).toBe("BUY");
+    expect(result.schemaFailed).toBe(false);
+    expect(result.responseHash).toBe(hashObject(valid));
+    expect(body.response_format).toBeUndefined();
+    expect(body.tool_choice).toBe("required");
+    expect(body.tools[0].function.name).toBe("submit_agorasim_action");
+    expect(body.tools[0].function.parameters.type).toBe("object");
+    expect(body.tools[0].function.parameters.required).toEqual([
+      "action",
+      "target_ids",
+      "content",
+      "decision_summary",
+    ]);
   });
 
   it("drives a full paired run from recorded OpenAI-compatible responses", async () => {
