@@ -130,12 +130,7 @@
 
     .function-route, .evidence-route { display: grid; gap: clamp(.45rem, 1.5%, 1rem); }
     .function-route { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-    .evidence-route {
-      grid-template-columns:
-        minmax(6.5rem, 1fr) auto minmax(7.5rem, 1.15fr) auto minmax(6rem, .8fr) auto
-        minmax(7.5rem, 1.15fr) auto minmax(6rem, .85fr) auto minmax(6.5rem, 1fr);
-      align-items: stretch;
-    }
+    .evidence-route { grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: stretch; }
     .route-step { min-height: clamp(7rem, 21vh, 12rem); }
     .route-step::before { content: attr(data-index); display: block; margin-bottom: clamp(.5rem, 2vh, 1.2rem); color: var(--coral); font-size: clamp(1.3rem, 4vh, 2.6rem); font-weight: 900; }
     .evidence-route .route-step {
@@ -150,7 +145,6 @@
     .evidence-route .route-step:nth-child(3) { border-top-color: var(--yellow); }
     .evidence-route .route-step:nth-child(5) { border-top-color: var(--coral); }
     .evidence-route .route-step::before { margin-bottom: .4rem; font-size: var(--small-size); }
-    .route-arrow { display: grid; place-items: center; color: var(--cyan); font-size: clamp(1rem, 3vh, 2rem); font-weight: 900; }
 
     .agent-board { display: grid; grid-template-columns: repeat(12, 1fr); gap: clamp(3px, .65vh, 7px); padding: clamp(.75rem, 2vh, 1.25rem); border: 1px solid var(--line); background: var(--white); }
     .agent-dot { aspect-ratio: 1; border-radius: 50%; background: var(--cyan); animation: breathe 2.4s ease-in-out infinite; }
@@ -170,12 +164,33 @@
     .chain-node { border-color: #596057; background: #252a24; }
     .chain-node strong { display: block; color: var(--acid); font-size: var(--h3-size); }
     .chain-node span { display: block; margin-top: .4rem; color: #b9c0b5; font-size: var(--small-size); }
-    .slide--dark .evidence-route {
-      grid-template-columns:
-        minmax(6.5rem, 1fr) auto minmax(7.5rem, 1.15fr) auto minmax(6rem, .8fr) auto
-        minmax(7.5rem, 1.15fr) auto minmax(6rem, .85fr) auto minmax(6.5rem, 1fr);
+    .slide--dark .evidence-route { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .evidence-sweep { position: relative; height: clamp(1.8rem, 5vh, 3rem); margin-top: clamp(-.25rem, -.5vh, 0rem); }
+    .evidence-sweep-line {
+      position: absolute;
+      left: 1%;
+      right: 2.4rem;
+      top: 50%;
+      height: 4px;
+      background: var(--acid);
+      transform: scaleX(0);
+      transform-origin: left center;
+      transition: transform 900ms var(--ease) 260ms;
     }
-    .slide--dark .route-arrow { color: var(--acid); }
+    .evidence-sweep-head {
+      position: absolute;
+      right: 1%;
+      top: calc(50% - .55rem);
+      width: 1.15rem;
+      height: 1.15rem;
+      border-top: 4px solid var(--acid);
+      border-right: 4px solid var(--acid);
+      opacity: 0;
+      transform: translateX(-1rem) rotate(45deg);
+      transition: opacity 180ms ease 1.06s, transform 280ms var(--ease) 1s;
+    }
+    .is-active .evidence-sweep-line { transform: scaleX(1); }
+    .is-active .evidence-sweep-head { opacity: 1; transform: translateX(0) rotate(45deg); }
     .slide--dark .plain-panel, .slide--dark .boundary { color: var(--ink); }
 
     .live-board { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: clamp(.75rem, 3%, 2rem); }
@@ -218,7 +233,6 @@
       .function-route { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .evidence-route { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .slide--dark .evidence-route { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-      .evidence-route .route-arrow { display: none; }
       .evidence-route .route-step { min-height: 0; padding: .65rem; }
       .result-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .metric b { font-size: clamp(2.4rem, 10vh, 5rem); }
@@ -321,17 +335,13 @@
         <div data-reveal><p class="eyebrow">WEB3 / INJECTIVE TESTNET</p><h2>把“想买”与“已核验购买”分开</h2></div>
         <div class="evidence-route" data-reveal>
           <div class="chain-node route-step" data-index="01"><strong>Claim</strong><span>Agent 表达意图</span></div>
-          <div class="route-arrow">→</div>
           <div class="chain-node route-step" data-index="02"><strong>Wallet Policy</strong><span>网络、资产、商家、预算</span></div>
-          <div class="route-arrow">→</div>
           <div class="chain-node route-step" data-index="03"><strong>x402</strong><span>授权与结算</span></div>
-          <div class="route-arrow">→</div>
           <div class="chain-node route-step" data-index="04"><strong>Injective 1439</strong><span>测试网确认</span></div>
-          <div class="route-arrow">→</div>
           <div class="chain-node route-step" data-index="05"><strong>Indexer</strong><span>收据回流</span></div>
-          <div class="route-arrow">→</div>
           <div class="chain-node route-step" data-index="06"><strong>Evidence</strong><span>边界明确的证明</span></div>
         </div>
+        <div class="evidence-sweep" aria-hidden="true"><span class="evidence-sweep-line"></span><span class="evidence-sweep-head"></span></div>
         <p class="lede" data-reveal>收据证明购买、金额、商家和时间；不证明质量、体验或推荐动机。</p>
       </div>
       <aside class="speaker-notes">当 Agent 表达想买时，系统不会把一句话当成购买。Wallet Policy 先校验网络、资产、商家和预算；x402 完成授权，Injective 测试网确认交易，Indexer 回流收据，只有金额、商家、商品和时间都核验后才生成 Evidence。</aside>
