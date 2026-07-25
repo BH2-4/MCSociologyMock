@@ -52,11 +52,11 @@ Status date: 2026-07-25. P1 is implemented through the pre-launch waiting state;
 | Synthetic Spend Ledger | PASS | Ledger separates opening currency, normalized free reward, planned pull, simulated top-up and zero other-banner spend; conservation test passes. |
 | Publishing Report | PASS | `createPublishingReport()` emits paired difference, funnel, segment effects, checks, bounded recommendation and limitations. |
 | Pre-launch waiting state | PASS | Snapshot, pair result, report and UI remain `AWAITING_POSTLAUNCH_OBSERVATION` with an empty observation list. |
-| Post-launch observation gate | PASS (contract) | `createPublicProxyObservation()` rejects early observations and validates source/time/value; report transitions only when all three points exist. |
+| Post-launch observation gate | PASS (pre-launch implementation) | Core rejects early/future observations; `PublishingRunRegistry` appends immutable hashed records; protected POST and public GET report routes are wired; the pre-launch UI keeps submission disabled. No real post-launch value is claimed. |
 | Disclaimer and attribution boundary | PASS | UI footer, report disclaimer and README state that synthetic units and mobile proxies do not represent Japan all-platform or single-character revenue. |
 | Replay and export path | PASS | P1 Replay reads the completed pair recorded in the current API session, returns identical metrics with zero network/LLM/ledger side effects, and the UI exports durable report/result JSON. |
 | OpenAI-compatible P1 decision path | PASS | `runPublishingPairWithDecisionAdapter` runs Control then Treatment serially; the shared Adapter validates/retries action and visible references, records request/response hashes and attempt usage, requires a separate run token, permits one active pair, and bounds Replay memory. |
-| Automated verification | PASS (pre-launch) | 26 core tests, 52 server tests, Web typecheck, Next production build, and four P0/P1 Playwright journeys across desktop/mobile pass on a clean test port. |
+| Automated verification | PASS (pre-launch) | 27 core tests, 55 server tests, Web typecheck, Next production build, and four P0/P1 Playwright journeys across desktop/mobile pass on a clean test port. |
 
 ### P1 remaining gate
 

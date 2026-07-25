@@ -1,4 +1,4 @@
-import { replayPairedExperiment, runPairedExperiment } from "@agorasim/core";
+import { replayPairedExperiment, runPairedExperiment } from "@gesellschaft/core";
 
 const recording = runPairedExperiment(process.env.REPLAY_PROTOCOL_SEED ?? "demo-seed-01", "fixed-threshold");
 const replay = replayPairedExperiment(recording);

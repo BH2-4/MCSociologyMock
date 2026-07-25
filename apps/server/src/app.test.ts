@@ -1,7 +1,7 @@
 import type { PairSummary, RunStore, StoredPair } from "./store.js";
 import { describe, expect, it } from "vitest";
 
-import { createApp, missingLlmProviderError, missingPublishingLlmProviderError, missingTestnetReceiptError, publishingLlmAccessError } from "./app.js";
+import { createApp, missingLlmProviderError, missingPublishingLlmProviderError, missingTestnetReceiptError, publishingAdminAccessError, publishingLlmAccessError } from "./app.js";
 
 class TestStore implements RunStore {
   async migrate() {}
@@ -43,5 +43,8 @@ describe("server", () => {
     expect(publishingLlmAccessError("llm", "secret", "secret", true)?.status).toBe(409);
     expect(publishingLlmAccessError("llm", "secret", "secret", false)).toBeNull();
     expect(publishingLlmAccessError("deterministic", undefined, undefined, true)).toBeNull();
+    expect(publishingAdminAccessError(undefined, undefined)?.status).toBe(503);
+    expect(publishingAdminAccessError("secret", "wrong")?.status).toBe(401);
+    expect(publishingAdminAccessError("secret", "secret")).toBeNull();
   });
 });

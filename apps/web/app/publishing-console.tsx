@@ -17,13 +17,15 @@ import {
   UsersRound,
   WalletCards,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 
 import {
+  type ObservationPoint,
+  type PublicProxyObservationInput,
   type PublishingPairResult,
   type PublishingReplayResult,
   type PublishingReport,
-} from "@agorasim/core";
+} from "@gesellschaft/core";
 
 type Workspace = "market" | "audience" | "strategy" | "outcome";
 
@@ -57,6 +59,21 @@ export function PublishingConsole({ initialResult, initialReport }: { initialRes
   const [pairId, setPairId] = useState<string | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<"control" | "treatment">("control");
   const [error, setError] = useState<string | null>(null);
+  const [adminToken, setAdminToken] = useState("");
+  const [observationDraft, setObservationDraft] = useState({
+    point: "T_RELEASE" as ObservationPoint,
+    sourceTier: "B_MEASURED" as PublicProxyObservationInput["sourceTier"],
+    platformScope: "JP_IOS_APP_STORE" as PublicProxyObservationInput["platformScope"],
+    unit: "ORDINAL_RANK" as PublicProxyObservationInput["unit"],
+    metricName: "jp_ios_grossing_rank",
+    value: "",
+    observedAt: "",
+    publishedAt: "",
+    collectedAt: "",
+    sourceUrl: "",
+    measurementPeriod: "",
+    methodology: "",
+  });
   const branch = result[selectedBranch];
   const agents = result.control.agents;
   const segments = [...new Set(agents.map((agent) => agent.segment))];
@@ -101,6 +118,30 @@ export function PublishingConsole({ initialResult, initialReport }: { initialRes
     }
   }
 
+  async function appendObservation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    try {
+      if (!pairId) throw new Error("Run a P1 pair in this API session before adding observations.");
+      const response = await fetch(`${API_URL}/v1/experiments/zzz-3.1-jp/runs/${pairId}/observations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-gesellschaft-run-token": adminToken },
+        body: JSON.stringify({
+          ...observationDraft,
+          value: Number(observationDraft.value),
+          licenseStatus: "PUBLIC_REFERENCE_ONLY",
+          currency: "NONE",
+        } satisfies PublicProxyObservationInput),
+      });
+      const body = await response.json() as { report?: PublishingReport; error?: string };
+      if (!response.ok || !body.report) throw new Error(body.error ?? `Observation API returned ${response.status}`);
+      setReport(body.report);
+      setObservationDraft((current) => ({ ...current, value: "", sourceUrl: "", methodology: "" }));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Observation append failed");
+    }
+  }
+
   function downloadReport() {
     const payload = JSON.stringify({ report, result }, null, 2);
     const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
@@ -115,7 +156,7 @@ export function PublishingConsole({ initialResult, initialReport }: { initialRes
     <main className="publishing-shell">
       <header className="publishing-topbar">
         <div className="publishing-brand"><img src="/gesellschaft-logo.svg" alt="Gesellschaft" /><span>P1 / ZZZ 3.1 JP</span></div>
-        <div className="publishing-meta"><span><Clock3 size={14} /> Pre-launch snapshot</span><span className="status-waiting">Awaiting T+72h</span><Link href="/" className="p1-back-link">P0 Lab</Link></div>
+        <div className="publishing-meta"><span><Clock3 size={14} /> Immutable pre-launch snapshot</span><span className="status-waiting">{report.status === "AWAITING_POSTLAUNCH_OBSERVATION" ? "Awaiting T+72h" : report.status}</span><Link href="/" className="p1-back-link">P0 Lab</Link></div>
       </header>
 
       <section className="case-header">
@@ -242,7 +283,27 @@ export function PublishingConsole({ initialResult, initialReport }: { initialRes
           <article className="panel observation-panel">
             <div className="panel-heading"><div><span className="eyebrow">POST-LAUNCH OBSERVATORY</span><h2>{report.status}</h2></div><Clock3 size={20} /></div>
             <div className="observation-timeline">{(["T_RELEASE", "T_PLUS_24H", "T_PLUS_72H"] as const).map((point) => <div className="observation-step" key={point}><span className={report.observations.some((item) => item.point === point) ? "done" : "pending"}>{report.observations.some((item) => item.point === point) ? <Check size={13} /> : ""}</span><div><strong>{point}</strong><small>{point === "T_RELEASE" ? "2026-07-29 JST" : point === "T_PLUS_24H" ? "2026-07-30 JST" : "2026-08-01 JST"}</small></div></div>)}</div>
-            <p className="panel-note">发布后才允许追加日本公开榜单和官方互动；当前没有真实观测数据。</p>
+            {report.observations.map((item) => <div className="observation-record" key={item.observationId}><div><strong>{item.metricName}</strong><small>{item.point} · {item.platformScope}</small></div><span>{item.value} {item.unit}</span><a href={item.sourceUrl} target="_blank" rel="noreferrer">Source</a></div>)}
+            <p className="panel-note">{report.observations.length === 0 ? "发布后才允许追加日本公开榜单和官方互动；当前没有真实观测数据。" : "公开代理信号仅用于弱外部校验，不识别现实处理效应。"}</p>
+          </article>
+          <article className="panel panel-wide observation-entry-panel">
+            <div className="panel-heading"><div><span className="eyebrow">APPEND-ONLY INPUT</span><h2>公开代理观测</h2></div><Database size={20} /></div>
+            <form className="observation-form" onSubmit={appendObservation}>
+              <select aria-label="Observation point" value={observationDraft.point} onChange={(event) => setObservationDraft({ ...observationDraft, point: event.target.value as ObservationPoint })}><option value="T_RELEASE">T_release</option><option value="T_PLUS_24H">T+24h</option><option value="T_PLUS_72H">T+72h</option></select>
+              <select aria-label="Observation platform" value={observationDraft.platformScope} onChange={(event) => setObservationDraft({ ...observationDraft, platformScope: event.target.value as PublicProxyObservationInput["platformScope"] })}><option value="JP_IOS_APP_STORE">JP iOS App Store</option><option value="JP_GOOGLE_PLAY">JP Google Play</option><option value="OFFICIAL_JP_CONTENT">Official JP content</option></select>
+              <select aria-label="Source tier" value={observationDraft.sourceTier} onChange={(event) => setObservationDraft({ ...observationDraft, sourceTier: event.target.value as PublicProxyObservationInput["sourceTier"] })}><option value="A_OFFICIAL">A · Official</option><option value="B_MEASURED">B · Measured</option><option value="C_ESTIMATED">C · Estimated</option></select>
+              <select aria-label="Observation unit" value={observationDraft.unit} onChange={(event) => setObservationDraft({ ...observationDraft, unit: event.target.value as PublicProxyObservationInput["unit"] })}><option value="ORDINAL_RANK">Ordinal rank</option><option value="PUBLIC_INTERACTION_COUNT">Public interactions</option><option value="OBSERVED_HOURS">Observed hours</option></select>
+              <input required aria-label="Metric name" value={observationDraft.metricName} onChange={(event) => setObservationDraft({ ...observationDraft, metricName: event.target.value })} />
+              <input required aria-label="Observed value" type="number" min="0" step="1" value={observationDraft.value} onChange={(event) => setObservationDraft({ ...observationDraft, value: event.target.value })} placeholder="Value" />
+              <input required aria-label="Observed at" value={observationDraft.observedAt} onChange={(event) => setObservationDraft({ ...observationDraft, observedAt: event.target.value })} placeholder="Observed at (ISO 8601)" />
+              <input required aria-label="Published at" value={observationDraft.publishedAt} onChange={(event) => setObservationDraft({ ...observationDraft, publishedAt: event.target.value })} placeholder="Published at (ISO 8601)" />
+              <input required aria-label="Collected at" value={observationDraft.collectedAt} onChange={(event) => setObservationDraft({ ...observationDraft, collectedAt: event.target.value })} placeholder="Collected at (ISO 8601)" />
+              <input required aria-label="Measurement period" value={observationDraft.measurementPeriod} onChange={(event) => setObservationDraft({ ...observationDraft, measurementPeriod: event.target.value })} placeholder="Measurement period" />
+              <input required aria-label="Public source URL" type="url" value={observationDraft.sourceUrl} onChange={(event) => setObservationDraft({ ...observationDraft, sourceUrl: event.target.value })} placeholder="https://" />
+              <input required aria-label="Collection methodology" value={observationDraft.methodology} onChange={(event) => setObservationDraft({ ...observationDraft, methodology: event.target.value })} placeholder="Collection methodology" />
+              <input required aria-label="Publishing admin token" type="password" autoComplete="off" value={adminToken} onChange={(event) => setAdminToken(event.target.value)} placeholder="Admin token" />
+              <button type="submit" disabled={!pairId || Date.now() < Date.parse("2026-07-29T00:00:00+09:00")}><Database size={15} /> Append observation</button>
+            </form>
           </article>
           <article className="panel panel-wide">
             <div className="panel-heading"><div><span className="eyebrow">MECHANISM FUNNEL</span><h2>分支行动计数</h2></div><GitBranch size={20} /></div>

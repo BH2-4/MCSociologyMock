@@ -1,5 +1,5 @@
 {
-  "name": "@agorasim/server",
+  "name": "@gesellschaft/server",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -16,7 +16,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@agorasim/core": "workspace:*",
+    "@gesellschaft/core": "workspace:*",
     "@injectivelabs/x402": "0.0.1",
     "cors": "^2.8.5",
     "express": "^5.1.0",

@@ -1,4 +1,4 @@
-import type { Evidence } from "@agorasim/core";
+import type { Evidence } from "@gesellschaft/core";
 
 import {
   BLOCKSCOUT_TESTNET_URL,

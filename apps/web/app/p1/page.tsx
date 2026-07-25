@@ -1,4 +1,4 @@
-import { createPublishingReport, runPublishingPair } from "@agorasim/core";
+import { createPublishingReport, runPublishingPair } from "@gesellschaft/core";
 
 import { PublishingConsole } from "../publishing-console";
 

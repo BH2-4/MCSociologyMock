@@ -1,4 +1,4 @@
-import { runPairedExperiment } from "@agorasim/core";
+import { runPairedExperiment } from "@gesellschaft/core";
 
 import { ExperimentConsole } from "./experiment-console";
 

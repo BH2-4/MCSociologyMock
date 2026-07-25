@@ -2,7 +2,6 @@ import cors from "cors";
 import express from "express";
 import {
   hashObject,
-  createPublishingReport,
   replayPublishingPair,
   replayPairedExperiment,
   runPublishingPair,
@@ -15,10 +14,12 @@ import {
   type PublishingDecisionRequest,
   type PublishingExternalDecision,
   type PublishingPairResult,
-} from "@agorasim/core";
+  type PublicProxyObservationInput,
+} from "@gesellschaft/core";
 import { z } from "zod";
 
 import { createResearchExport } from "./export.js";
+import { PublishingRunRegistry } from "./publishing-run-registry.js";
 import type { PairSummary, RunStore, StoredPair } from "./store.js";
 import { registerX402Resource, type X402ResourceConfig } from "./x402-resource.js";
 
@@ -35,6 +36,23 @@ const publishingRunRequestSchema = z.object({
 
 const publishingReplayRequestSchema = z.object({
   pairId: z.string().min(1).max(80).regex(/^[a-zA-Z0-9_-]+$/),
+}).strict();
+
+const publishingObservationSchema = z.object({
+  point: z.enum(["T_RELEASE", "T_PLUS_24H", "T_PLUS_72H"]),
+  observedAt: z.string().datetime({ offset: true }),
+  publishedAt: z.string().datetime({ offset: true }),
+  collectedAt: z.string().datetime({ offset: true }),
+  sourceUrl: z.string().url().refine((value) => value.startsWith("https://"), "HTTPS source required"),
+  sourceTier: z.enum(["A_OFFICIAL", "B_MEASURED", "C_ESTIMATED"]),
+  platformScope: z.enum(["JP_IOS_APP_STORE", "JP_GOOGLE_PLAY", "OFFICIAL_JP_CONTENT"]),
+  metricName: z.string().min(2).max(120).regex(/^[a-z0-9_]+$/),
+  measurementPeriod: z.string().min(3).max(240),
+  licenseStatus: z.literal("PUBLIC_REFERENCE_ONLY"),
+  value: z.number().finite().nonnegative(),
+  unit: z.enum(["ORDINAL_RANK", "PUBLIC_INTERACTION_COUNT", "OBSERVED_HOURS"]),
+  currency: z.literal("NONE"),
+  methodology: z.string().min(10).max(500),
 }).strict();
 
 function pairIdFor(protocolSeed: string, decisionMode: string, paymentFingerprint: string): string {
@@ -94,6 +112,12 @@ export function publishingLlmAccessError(
   return null;
 }
 
+export function publishingAdminAccessError(configuredToken: string | undefined, suppliedToken: string | undefined) {
+  if (!configuredToken) return { status: 503, error: "PUBLISHING_ADMIN_TOKEN_NOT_CONFIGURED" } as const;
+  if (suppliedToken !== configuredToken) return { status: 401, error: "PUBLISHING_ADMIN_UNAUTHORIZED" } as const;
+  return null;
+}
+
 export function missingTestnetReceiptError(
   paymentMode: "mock" | "testnet",
   recordedSeedPayments?: RecordedSeedPayment[],
@@ -120,7 +144,7 @@ export function createApp({
   recordedSeedPayments?: RecordedSeedPayment[];
 }) {
   const app = express();
-  const publishingRuns = new Map<string, PublishingPairResult>();
+  const publishingRuns = new PublishingRunRegistry(16);
   let publishingLlmRunInProgress = false;
   app.use(cors());
   app.use(express.json({ limit: "64kb" }));
@@ -144,7 +168,7 @@ export function createApp({
     const accessError = publishingLlmAccessError(
       parsed.data.decisionMode,
       publishingLlmRunToken,
-      request.header("x-agorasim-run-token"),
+      request.header("x-gesellschaft-run-token"),
       publishingLlmRunInProgress,
     );
     if (accessError) {
@@ -177,16 +201,12 @@ export function createApp({
     }
     const eventHash = hashObject({ control: result.control.events, treatment: result.treatment.events });
     const pairId = `zzz-jp-${hashObject({ seed: parsed.data.protocolSeed, agentCount: parsed.data.agentCount, decisionMode: parsed.data.decisionMode, eventHash }).slice(0, 16)}`;
-    if (!publishingRuns.has(pairId) && publishingRuns.size >= 16) {
-      const oldestPairId = publishingRuns.keys().next().value as string | undefined;
-      if (oldestPairId) publishingRuns.delete(oldestPairId);
-    }
-    publishingRuns.set(pairId, result);
+    publishingRuns.save(pairId, result);
     response.status(201).json({
       pairId,
       decisionMode: parsed.data.decisionMode,
       result,
-      report: createPublishingReport(result),
+      report: publishingRuns.report(pairId),
     });
   });
 
@@ -196,15 +216,56 @@ export function createApp({
       response.status(400).json({ error: "INVALID_PUBLISHING_REPLAY_REQUEST", issues: parsed.error.issues });
       return;
     }
-    const result = publishingRuns.get(parsed.data.pairId);
-    if (!result) {
+    const record = publishingRuns.get(parsed.data.pairId);
+    if (!record) {
       response.status(404).json({ error: "PUBLISHING_PAIR_NOT_FOUND", action: "Run the pair in this API session before Replay." });
       return;
     }
-    response.json({ replay: replayPublishingPair(result) });
+    response.json({ replay: replayPublishingPair(record.result) });
   });
 
-  app.post("/v1/experiments/agorasim-p0/runs", async (request, response) => {
+  app.get("/v1/experiments/zzz-3.1-jp/runs/:pairId/report", (request, response) => {
+    const pairId = publishingReplayRequestSchema.shape.pairId.safeParse(request.params.pairId);
+    if (!pairId.success) {
+      response.status(400).json({ error: "INVALID_PUBLISHING_PAIR_ID" });
+      return;
+    }
+    const report = publishingRuns.report(pairId.data);
+    if (!report) {
+      response.status(404).json({ error: "PUBLISHING_PAIR_NOT_FOUND" });
+      return;
+    }
+    response.json({ report });
+  });
+
+  app.post("/v1/experiments/zzz-3.1-jp/runs/:pairId/observations", (request, response) => {
+    const accessError = publishingAdminAccessError(publishingLlmRunToken, request.header("x-gesellschaft-run-token"));
+    if (accessError) {
+      response.status(accessError.status).json({ error: accessError.error });
+      return;
+    }
+    const pairId = publishingReplayRequestSchema.shape.pairId.safeParse(request.params.pairId);
+    const input = publishingObservationSchema.safeParse(request.body);
+    if (!pairId.success || !input.success) {
+      response.status(400).json({
+        error: "INVALID_POSTLAUNCH_OBSERVATION",
+        issues: input.success ? [] : input.error.issues,
+      });
+      return;
+    }
+    try {
+      const report = publishingRuns.appendObservation(pairId.data, input.data as PublicProxyObservationInput);
+      response.status(201).json({ observation: report.observations.at(-1), report });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "POSTLAUNCH_OBSERVATION_REJECTED";
+      const status = reason === "PUBLISHING_PAIR_NOT_FOUND" ? 404
+        : reason === "DUPLICATE_POSTLAUNCH_OBSERVATION" ? 409
+          : 422;
+      response.status(status).json({ error: reason });
+    }
+  });
+
+  app.post("/v1/experiments/gesellschaft-p0/runs", async (request, response) => {
     const parsed = runRequestSchema.safeParse(request.body);
     if (!parsed.success) {
       response.status(400).json({ error: "INVALID_RUN_REQUEST", issues: parsed.error.issues });
@@ -241,7 +302,7 @@ export function createApp({
     response.status(201).json(stored.summary);
   });
 
-  app.get("/v1/experiments/agorasim-p0/comparison", async (_request, response) => {
+  app.get("/v1/experiments/gesellschaft-p0/comparison", async (_request, response) => {
     response.json({
       disclaimer: "Synthetic simulation. Not a real-market forecast.",
       pairs: await store.listPairs(),

@@ -1,14 +1,14 @@
 {
-  "name": "agorasim",
+  "name": "gesellschaft",
   "private": true,
   "version": "0.1.0",
   "packageManager": "pnpm@11.4.0",
   "scripts": {
     "build": "pnpm -r build",
-    "dev": "pnpm --parallel --filter @agorasim/server --filter @agorasim/web dev",
-    "dev:facilitator": "pnpm --filter @agorasim/server dev:facilitator",
-    "seed:testnet": "pnpm --filter @agorasim/core build && pnpm --filter @agorasim/server build && pnpm --filter @agorasim/server seed:testnet",
-    "replay:mock": "pnpm --filter @agorasim/core build && pnpm --filter @agorasim/server build && pnpm --filter @agorasim/server replay:mock",
+    "dev": "pnpm --parallel --filter @gesellschaft/server --filter @gesellschaft/web dev",
+    "dev:facilitator": "pnpm --filter @gesellschaft/server dev:facilitator",
+    "seed:testnet": "pnpm --filter @gesellschaft/core build && pnpm --filter @gesellschaft/server build && pnpm --filter @gesellschaft/server seed:testnet",
+    "replay:mock": "pnpm --filter @gesellschaft/core build && pnpm --filter @gesellschaft/server build && pnpm --filter @gesellschaft/server replay:mock",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "test:e2e": "playwright test"

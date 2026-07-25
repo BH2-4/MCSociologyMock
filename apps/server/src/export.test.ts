@@ -1,4 +1,4 @@
-import { runPairedExperiment } from "@agorasim/core";
+import { runPairedExperiment } from "@gesellschaft/core";
 import { describe, expect, it } from "vitest";
 
 import { createResearchExport } from "./export.js";

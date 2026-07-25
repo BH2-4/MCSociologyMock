@@ -1,4 +1,4 @@
-import { hashObject, runPairedExperimentWithDecisionAdapter } from "@agorasim/core";
+import { hashObject, runPairedExperimentWithDecisionAdapter } from "@gesellschaft/core";
 import { describe, expect, it, vi } from "vitest";
 
 import { OpenAiCompatibleDecisionAdapter, type LlmObservation } from "./llm-adapter.js";
@@ -32,7 +32,7 @@ function toolCompletion(argumentsJson: string, content = "provider reasoning tha
       reasoning_content: "provider-internal-content",
       tool_calls: [{
         type: "function",
-        function: { name: "submit_agorasim_action", arguments: argumentsJson },
+        function: { name: "submit_gesellschaft_action", arguments: argumentsJson },
       }],
     } }],
     usage: { prompt_tokens: 120, completion_tokens: 50 },
@@ -275,7 +275,7 @@ describe("OpenAI-compatible decision adapter", () => {
     expect(result.responseHash).toBe(hashObject(valid));
     expect(body.response_format).toBeUndefined();
     expect(body.tool_choice).toBe("required");
-    expect(body.tools[0].function.name).toBe("submit_agorasim_action");
+    expect(body.tools[0].function.name).toBe("submit_gesellschaft_action");
     expect(body.tools[0].function.parameters.type).toBe("object");
     expect(body.tools[0].function.parameters.required).toEqual([
       "action",

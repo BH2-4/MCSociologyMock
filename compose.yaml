@@ -2,18 +2,18 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: agorasim
-      POSTGRES_USER: agorasim
-      POSTGRES_PASSWORD: agorasim
+      POSTGRES_DB: gesellschaft
+      POSTGRES_USER: gesellschaft
+      POSTGRES_PASSWORD: gesellschaft
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U agorasim"]
+      test: ["CMD-SHELL", "pg_isready -U gesellschaft"]
       interval: 2s
       timeout: 2s
       retries: 15
     ports:
       - "5432:5432"
     volumes:
-      - agorasim-postgres:/var/lib/postgresql/data
+      - gesellschaft-postgres:/var/lib/postgresql/data
 
 volumes:
-  agorasim-postgres:
+  gesellschaft-postgres:

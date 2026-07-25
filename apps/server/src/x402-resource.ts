@@ -1,7 +1,7 @@
 import { injectivePaymentMiddleware } from "@injectivelabs/x402/middleware";
 import { decodePaymentSignatureHeader } from "@injectivelabs/x402/client";
 import type { Express, Request as ExpressRequest } from "express";
-import { hashObject } from "@agorasim/core";
+import { hashObject } from "@gesellschaft/core";
 
 import {
   ECO_CUP_AMOUNT,

@@ -5,7 +5,7 @@ import {
   type LlmAttemptAudit,
   type PublishingDecisionRequest,
   type PublishingExternalDecision,
-} from "@agorasim/core";
+} from "@gesellschaft/core";
 import { Agent, fetch as undiciFetch } from "undici";
 import { z } from "zod";
 
@@ -97,7 +97,7 @@ export interface OpenAiCompatibleConfig {
 }
 
 const responseJsonSchema = {
-  name: "agorasim_agent_action",
+  name: "gesellschaft_agent_action",
   strict: true,
   schema: {
     type: "object",
@@ -124,11 +124,11 @@ const responseJsonSchema = {
   },
 } as const;
 
-const actionToolName = "submit_agorasim_action";
+const actionToolName = "submit_gesellschaft_action";
 const publishingActionToolName = "submit_publishing_action";
 
 const publishingResponseJsonSchema = {
-  name: "agorasim_publishing_action",
+  name: "gesellschaft_publishing_action",
   strict: true,
   schema: {
     type: "object",
@@ -193,37 +193,26 @@ export class OpenAiCompatibleDecisionAdapter {
 
   async #request(input: string, init: RequestInit): Promise<Response> {
     const timeoutMs = this.#config.requestTimeoutMs ?? 30_000;
-    const maxAttempts = 4;
-    let lastError: unknown;
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      try {
-        // Prefer undici with a longer connect timeout; VPN/fake-ip paths often exceed the 10s default.
-        if (this.#fetch === fetch) {
-          const response = await undiciFetch(input, {
-            method: init.method,
-            headers: init.headers as Record<string, string>,
-            body: init.body as string | undefined,
-            signal: AbortSignal.timeout(timeoutMs),
-            dispatcher: llmDispatcher,
-          });
-          return response as unknown as Response;
-        }
-        return await this.#fetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
-      } catch (error) {
-        lastError = error;
-        const isTimeout = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
-        const cause = error instanceof Error && "cause" in error ? String((error as { cause?: unknown }).cause ?? "") : "";
-        const isNetwork = error instanceof TypeError
-          || (error instanceof Error && /fetch failed|ECONNRESET|ECONNREFUSED|ENOTFOUND|UND_ERR|socket|Connect Timeout/i.test(`${error.message} ${cause}`));
-        if (attempt >= maxAttempts || (!isTimeout && !isNetwork)) {
-          if (isTimeout) throw new Error(`LLM request timed out after ${timeoutMs}ms`);
-          if (error instanceof Error && cause) throw new Error(`${error.message}: ${cause}`);
-          throw error;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 800 * attempt));
+    try {
+      // Keep one provider request per decision while allowing slow proxy/VPN connections to establish.
+      if (this.#fetch === fetch) {
+        const response = await undiciFetch(input, {
+          method: init.method,
+          headers: init.headers as Record<string, string>,
+          body: init.body as string | undefined,
+          signal: AbortSignal.timeout(timeoutMs),
+          dispatcher: llmDispatcher,
+        });
+        return response as unknown as Response;
       }
+      return await this.#fetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+    } catch (error) {
+      const isTimeout = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+      if (isTimeout) throw new Error(`LLM request timed out after ${timeoutMs}ms`);
+      const cause = error instanceof Error && "cause" in error ? String((error as { cause?: unknown }).cause ?? "") : "";
+      if (error instanceof Error && cause) throw new Error(`${error.message}: ${cause}`);
+      throw error;
     }
-    throw lastError instanceof Error ? lastError : new Error("LLM request failed");
   }
 
   async probeProvider(): Promise<void> {
@@ -268,7 +257,7 @@ export class OpenAiCompatibleDecisionAdapter {
         {
           role: "system",
           content: this.#config.toolJsonSchema
-            ? "Choose one allowed action from visible information and call submit_agorasim_action once. Report only an explicit decision summary and reason codes; do not provide hidden reasoning or chain-of-thought."
+            ? "Choose one allowed action from visible information and call submit_gesellschaft_action once. Report only an explicit decision summary and reason codes; do not provide hidden reasoning or chain-of-thought."
             : `Choose one allowed action from visible information. Return only JSON matching this schema: ${JSON.stringify(responseJsonSchema.schema)}. Report a short decision summary and reason codes; do not provide hidden reasoning or chain-of-thought.`,
         },
         { role: "user", content: JSON.stringify(observation) },

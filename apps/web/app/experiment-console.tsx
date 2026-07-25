@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { BranchRun, ExperimentEvent, PairedExperimentResult } from "@agorasim/core";
+import type { BranchRun, ExperimentEvent, PairedExperimentResult } from "@gesellschaft/core";
 import {
   Activity,
   BadgeCheck,
@@ -201,7 +201,7 @@ export function ExperimentConsole({
   async function showCompare() {
     setView("compare");
     try {
-      const response = await fetch(`${API_URL}/v1/experiments/agorasim-p0/comparison`);
+      const response = await fetch(`${API_URL}/v1/experiments/gesellschaft-p0/comparison`);
       if (!response.ok) return;
       const body = await response.json() as { pairs?: ComparisonSummary[] };
       if (body.pairs) mergeComparisons(body.pairs);
@@ -214,7 +214,7 @@ export function ExperimentConsole({
     setRunning(true);
     setError(null);
     try {
-      const created = await fetch(`${API_URL}/v1/experiments/agorasim-p0/runs`, {
+      const created = await fetch(`${API_URL}/v1/experiments/gesellschaft-p0/runs`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Idempotency-Key": `${protocolSeed}:${decisionMode}` },
         body: JSON.stringify({ protocolSeed, decisionMode }),

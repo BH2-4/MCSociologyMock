@@ -6,17 +6,22 @@ export type ObservationPoint = "T_RELEASE" | "T_PLUS_24H" | "T_PLUS_72H";
 export interface PublicProxyObservationInput {
   point: ObservationPoint;
   observedAt: string;
+  publishedAt: string;
   collectedAt: string;
   sourceUrl: string;
   sourceTier: "A_OFFICIAL" | "B_MEASURED" | "C_ESTIMATED";
   platformScope: "JP_IOS_APP_STORE" | "JP_GOOGLE_PLAY" | "OFFICIAL_JP_CONTENT";
   metricName: string;
+  measurementPeriod: string;
+  licenseStatus: "PUBLIC_REFERENCE_ONLY";
   value: number;
   unit: "ORDINAL_RANK" | "PUBLIC_INTERACTION_COUNT" | "OBSERVED_HOURS";
+  currency: "NONE";
   methodology: string;
 }
 
 export interface PublicProxyObservation extends PublicProxyObservationInput {
+  market: "JP";
   observationId: string;
   contentHash: string;
 }
@@ -49,19 +54,29 @@ const MINIMUM_POINT_TIME: Record<ObservationPoint, number> = {
   T_PLUS_72H: RELEASE_AT_MS + 72 * 60 * 60 * 1000,
 };
 
-export function createPublicProxyObservation(input: PublicProxyObservationInput): PublicProxyObservation {
+export function createPublicProxyObservation(
+  input: PublicProxyObservationInput,
+  now: Date = new Date(),
+): PublicProxyObservation {
   const observedAt = Date.parse(input.observedAt);
+  const publishedAt = Date.parse(input.publishedAt);
   const collectedAt = Date.parse(input.collectedAt);
-  if (!Number.isFinite(observedAt) || !Number.isFinite(collectedAt)) throw new Error("OBSERVATION_TIME_INVALID");
+  const nowAt = now.getTime();
+  if (!Number.isFinite(observedAt) || !Number.isFinite(publishedAt) || !Number.isFinite(collectedAt) || !Number.isFinite(nowAt)) {
+    throw new Error("OBSERVATION_TIME_INVALID");
+  }
   if (observedAt < MINIMUM_POINT_TIME[input.point]) throw new Error("OBSERVATION_POINT_TOO_EARLY");
+  if (observedAt > nowAt || publishedAt > nowAt || collectedAt > nowAt) throw new Error("OBSERVATION_FROM_FUTURE");
+  if (publishedAt > collectedAt) throw new Error("OBSERVATION_PUBLISHED_AFTER_COLLECTION");
   if (collectedAt < observedAt) throw new Error("OBSERVATION_COLLECTED_BEFORE_OBSERVED");
   if (!input.sourceUrl.startsWith("https://")) throw new Error("OBSERVATION_SOURCE_INVALID");
   if (!Number.isFinite(input.value) || input.value < 0) throw new Error("OBSERVATION_VALUE_INVALID");
   if (input.unit === "ORDINAL_RANK" && (!Number.isInteger(input.value) || input.value < 1)) {
     throw new Error("OBSERVATION_RANK_INVALID");
   }
-  const contentHash = hashObject(input);
-  return Object.freeze({ ...input, contentHash, observationId: `obs-${contentHash.slice(0, 16)}` });
+  const record = { ...input, market: "JP" as const };
+  const contentHash = hashObject(record);
+  return Object.freeze({ ...record, contentHash, observationId: `obs-${contentHash.slice(0, 16)}` });
 }
 
 function countAction(result: PublishingPairResult, branch: "control" | "treatment", action: PublishingAction): number {

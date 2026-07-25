@@ -4,7 +4,7 @@ import {
   parsePaymentResponseHeader,
 } from "@injectivelabs/x402/client";
 import type { PaymentPayload, PaymentRequirements } from "@injectivelabs/x402";
-import { hashObject } from "@agorasim/core";
+import { hashObject } from "@gesellschaft/core";
 
 import type { FixedWalletPolicy, PaymentIntent } from "./wallet-policy.js";
 

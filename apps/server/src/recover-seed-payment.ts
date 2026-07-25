@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 
 import { EIP3009_ABI } from "@injectivelabs/x402/eip3009";
 import { injectiveEvmTestnet } from "@injectivelabs/x402/networks";
-import { hashObject } from "@agorasim/core";
+import { hashObject } from "@gesellschaft/core";
 import { createPublicClient, decodeFunctionData, http, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 

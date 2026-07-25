@@ -18,7 +18,7 @@ export default defineConfig({
     { name: "mobile", use: { ...devices["Pixel 7"] } },
   ],
   webServer: {
-    command: `pnpm --filter @agorasim/core build && pnpm --filter @agorasim/web build && pnpm --filter @agorasim/web start --hostname 127.0.0.1 --port ${port}`,
+    command: `pnpm --filter @gesellschaft/core build && pnpm --filter @gesellschaft/web build && pnpm --filter @gesellschaft/web start --hostname 127.0.0.1 --port ${port}`,
     url: baseURL,
     reuseExistingServer: true,
     timeout: 120_000,

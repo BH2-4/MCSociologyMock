@@ -1,4 +1,4 @@
-import type { PairedExperimentResult } from "@agorasim/core";
+import type { PairedExperimentResult } from "@gesellschaft/core";
 
 export function createResearchExport(result: PairedExperimentResult) {
   const sanitizeBranch = (branch: PairedExperimentResult["control"]) => ({

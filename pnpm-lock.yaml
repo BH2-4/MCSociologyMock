@@ -20,7 +20,7 @@ importers:
 
   apps/server:
     dependencies:
-      '@agorasim/core':
+      '@gesellschaft/core':
         specifier: workspace:*
         version: link:../../packages/core
       '@injectivelabs/x402':
@@ -69,7 +69,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@agorasim/core':
+      '@gesellschaft/core':
         specifier: workspace:*
         version: link:../../packages/core
       lucide-react:

@@ -1,5 +1,5 @@
 {
-  "name": "@agorasim/web",
+  "name": "@gesellschaft/web",
   "private": true,
   "version": "0.1.0",
   "scripts": {
@@ -10,7 +10,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@agorasim/core": "workspace:*",
+    "@gesellschaft/core": "workspace:*",
     "lucide-react": "^0.468.0",
     "next": "^15.5.0",
     "react": "^19.1.0",

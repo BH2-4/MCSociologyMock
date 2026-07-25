@@ -1,6 +1,6 @@
-# AgoraSim：Injective x402 可核验口碑社会实验 PRD
+# Gesellschaft：Injective x402 可核验口碑社会实验 PRD
 
-> 工作名：AgoraSim（仓库名：MCSociologyMock）  
+> 工作名：Gesellschaft（仓库名：MCSociologyMock）
 > 版本：v0.4
 > 状态：P0 已验证 / P1 已定义
 > 日期：2026-07-25
@@ -8,7 +8,7 @@
 
 ## 0. 产品结论
 
-AgoraSim P0 不是通用“AI 社会平台”，而是一个针对单一机制问题的合成实验：**当同一名 Agent 发布同一条产品口碑时，开启或关闭已核验 Injective x402 购买收据的展示，是否会改变其他 Agent 对信息的可信度判断、后续传播和真实购买？**
+Gesellschaft P0 不是通用“AI 社会平台”，而是一个针对单一机制问题的合成实验：**当同一名 Agent 发布同一条产品口碑时，开启或关闭已核验 Injective x402 购买收据的展示，是否会改变其他 Agent 对信息的可信度判断、后续传播和真实购买？**
 
 系统从同一人口、关系图和随机种子生成配对的 Control/Treatment。两个分支中的产品、价格、供给、种子购买者、消息文本、发布时间和受众完全相同，唯一允许变化的处理变量是 `receipt_visibility`。MVP 输出模型内的处理效应、传播路径与失败条件，不输出真实市场销量预测。[R8][R9]
 
@@ -45,7 +45,7 @@ AgoraSim P0 不是通用“AI 社会平台”，而是一个针对单一机制�
 - Generative Agents 支持有界记忆和结构化行为连续性，但“像人”不是市场效度；生成式社会模拟的中心难题仍是验证。[R1][R7]
 - Injective x402 可以为实际购买提供独立签名、USDC 结算和交易哈希，使“曾经购买”成为可审计证据；它不能证明评价内容、产品质量或推荐动机真实。[R11][R12][R13]
 
-AgoraSim 的 P0 差异化由此固定为：
+Gesellschaft 的 P0 差异化由此固定为：
 
 1. 只随机化购买凭证的可见性，避免产品、文案、发送者和时机同时变化；
 2. 将链上收据转换为有明确证明边界的 `Evidence`，而不是把 tx hash 当装饰；
@@ -761,7 +761,7 @@ app.listen(4020);
 7. 链上成功但链下履约永久失败时，退款不是撤销原交易，而是一笔补偿支付：商家钱包向原 payer 签署使用新 nonce 的反向 EIP-3009 `transferWithAuthorization`，由 facilitator 结算；退款记录必须关联原支付 ID 和退款 tx hash；
 8. 退款确认后 Evidence 状态改为 `REVOKED_REFUNDED`。既有曝光事件保持不可变，但后续 observation 不得继续显示为有效购买凭证。
 
-x402 能保证按请求付款和链上收据，但不能原子交付现实商品。AgoraSim 的商品仍是模拟状态或数字凭证，必须依赖上述履约与补偿流程。
+x402 能保证按请求付款和链上收据，但不能原子交付现实商品。Gesellschaft 的商品仍是模拟状态或数字凭证，必须依赖上述履约与补偿流程。
 
 `after-success` 会在内存中暂存业务响应直到结算完成。P0 付费端点只返回不超过 1 MiB 的 JSON/数字凭证，不支持流式响应或大文件；这类资源留到具备分块交付协议后再开放。
 
@@ -1060,7 +1060,7 @@ Evidence 状态：
 
 ```text
 +--------------------------------------------------------------------------------+
-| AgoraSim | Pair S03 | Tick 03/08 | protocol 91af... | Branch diff: PASS          |
+| Gesellschaft | Pair S03 | Tick 03/08 | protocol 91af... | Branch diff: PASS          |
 +-----------------------+--------------------------------------+-----------------+
 | Claim + Evidence      | Mechanism timeline / network         | Agent Inspector |
 | claim hash 6cd2...    | A12 saw claim + verified receipt     | Threshold 0.63  |

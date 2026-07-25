@@ -137,7 +137,7 @@ function* runBranchMachine(config: BranchConfig, recordedSeedPayments?: Recorded
     address: recordedSeedPayments?.find((payment) =>
       payment.branchId === config.branchId && payment.logicalAgentId === agent.id
     )?.payerAddress ?? deterministicAddress(config.walletNamespace, agent.id),
-    keyRef: `secret://agorasim/${config.branchId}/${agent.id}`,
+    keyRef: `secret://gesellschaft/${config.branchId}/${agent.id}`,
     initialBalance: agent.budgetMicros,
     balance: agent.budgetMicros,
     nonce: 0,
@@ -156,7 +156,7 @@ function* runBranchMachine(config: BranchConfig, recordedSeedPayments?: Recorded
     sequence += 1;
     const event: ExperimentEvent = {
       eventId: `${config.runId}:evt:${String(sequence).padStart(4, "0")}`,
-      experimentId: "exp-agorasim-p0",
+      experimentId: "exp-gesellschaft-p0",
       runId: config.runId,
       branchId: config.branchId,
       tick,

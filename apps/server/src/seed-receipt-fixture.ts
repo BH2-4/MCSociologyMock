@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-import type { RecordedSeedPayment } from "@agorasim/core";
+import type { RecordedSeedPayment } from "@gesellschaft/core";
 import { z } from "zod";
 
 import {

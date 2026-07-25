@@ -6,6 +6,7 @@ research/外来补充/
 node_modules/
 .pnpm-store/
 .next/
+.next-dev/
 dist/
 coverage/
 playwright-report/

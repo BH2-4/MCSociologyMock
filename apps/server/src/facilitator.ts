@@ -33,7 +33,7 @@ const operations = {
 
 createFacilitatorApp({ operations, serviceToken, allowedIps, merchantAddress }).listen(port, (error?: Error) => {
   if (error) throw error;
-  console.log(`AgoraSim facilitator listening on port ${port}`);
+  console.log(`Gesellschaft facilitator listening on port ${port}`);
 });
 
 function requiredEnvironment(name: string): string {

@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 
-import type { RecordedSeedPayment } from "@agorasim/core";
+import type { RecordedSeedPayment } from "@gesellschaft/core";
 
 import { createApp } from "./app.js";
 import { PostgresRunStore } from "./db.js";
@@ -63,7 +63,7 @@ const server = createApp({
   recordedSeedPayments,
 }).listen(port, (error?: Error) => {
   if (error) throw error;
-  console.log(`AgoraSim API listening on http://localhost:${port}`);
+  console.log(`Gesellschaft API listening on http://localhost:${port}`);
 });
 
 async function shutdown() {

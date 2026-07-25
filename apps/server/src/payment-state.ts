@@ -118,4 +118,4 @@ export class FulfillmentLedger {
     this.#availableSupply += 1;
   }
 }
-import { hashObject } from "@agorasim/core";
+import { hashObject } from "@gesellschaft/core";
