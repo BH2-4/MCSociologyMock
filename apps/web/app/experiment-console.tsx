@@ -11,11 +11,13 @@ import {
   Download,
   ExternalLink,
   GitCompareArrows,
+  Megaphone,
   Network,
   Play,
   Radio,
   RefreshCw,
   ShieldCheck,
+  X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -30,6 +32,12 @@ interface ComparisonSummary {
   pairedEffect: number | null;
   controlAdoptionRate: number | null;
   treatmentAdoptionRate: number | null;
+}
+
+interface ProductRelease {
+  id: string;
+  text: string;
+  createdAt: string;
 }
 
 function percent(value: number): string {
@@ -145,6 +153,8 @@ export function ExperimentConsole({
   const [error, setError] = useState<string | null>(null);
   const [comparisons, setComparisons] = useState(initialComparisons);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [productDraft, setProductDraft] = useState("");
+  const [productReleases, setProductReleases] = useState<ProductRelease[]>([]);
   const branch = result[branchChoice];
   const mechanism = useMemo(() => representativeMechanism(branch), [branch]);
   const claim = branch.claims[0];
@@ -227,6 +237,20 @@ export function ExperimentConsole({
     if (!replayed.ok) setError(`Replay failed with ${replayed.status}`);
   }
 
+  function publishProductRelease() {
+    const text = productDraft.trim();
+    if (!text) return;
+    setProductReleases((current) => [
+      {
+        id: `release-${Date.now()}`,
+        text,
+        createdAt: new Date().toISOString(),
+      },
+      ...current,
+    ]);
+    setProductDraft("");
+  }
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -261,6 +285,67 @@ export function ExperimentConsole({
       </section>
 
       {error && <div className="error-banner" role="alert">Run stopped: {error}. Recorded result remains visible; no fallback was used.</div>}
+
+      <section className="release-panel" aria-label="Product release">
+        <div className="release-card">
+          <div className="release-card-head">
+            <div className="release-icon" aria-hidden>
+              <Megaphone size={16} />
+            </div>
+            <div>
+              <h2>Product release</h2>
+              <p>Inject a launch, update, or market signal into the society.</p>
+            </div>
+          </div>
+          <div className="release-compose">
+            <textarea
+              className="release-input"
+              rows={3}
+              value={productDraft}
+              onChange={(event) => setProductDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                  event.preventDefault();
+                  publishProductRelease();
+                }
+              }}
+              placeholder="e.g. Zenless Zone Zero 3.1 launches in Japan with new limited character Remiel…"
+              aria-label="Product release message"
+            />
+            <div className="release-actions">
+              <span className="release-hint">{productDraft.trim().length > 0 ? `${productDraft.trim().length} chars` : "⌘↵ to publish"}</span>
+              <button
+                type="button"
+                className="release-submit"
+                onClick={publishProductRelease}
+                disabled={!productDraft.trim()}
+              >
+                Publish
+              </button>
+            </div>
+          </div>
+          {productReleases.length > 0 && (
+            <ul className="release-queue">
+              {productReleases.map((release) => (
+                <li key={release.id} className="release-item">
+                  <div className="release-item-body">
+                    <strong>Queued</strong>
+                    <p>{release.text}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="release-remove"
+                    aria-label="Remove release"
+                    onClick={() => setProductReleases((current) => current.filter((item) => item.id !== release.id))}
+                  >
+                    <X size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
 
       <section className="metric-band" aria-label="Primary metrics">
         <div><span>Control adoption</span><strong>{percent(result.control.metrics.adoptionRate)}</strong><small>{result.control.metrics.adoptedNonSeed} / 22 non-seed</small></div>
