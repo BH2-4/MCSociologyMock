@@ -6,7 +6,14 @@ import {
   type PublishingDecisionRequest,
   type PublishingExternalDecision,
 } from "@agorasim/core";
+import { Agent, fetch as undiciFetch } from "undici";
 import { z } from "zod";
+
+const llmDispatcher = new Agent({
+  connect: { timeout: 60_000 },
+  headersTimeout: 120_000,
+  bodyTimeout: 120_000,
+});
 
 const actions = ["INSPECT_EVIDENCE", "CHAT", "POST", "BUY", "IDLE"] as const;
 const reasonCodes = [
@@ -186,14 +193,37 @@ export class OpenAiCompatibleDecisionAdapter {
 
   async #request(input: string, init: RequestInit): Promise<Response> {
     const timeoutMs = this.#config.requestTimeoutMs ?? 30_000;
-    try {
-      return await this.#fetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
-    } catch (error) {
-      if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
-        throw new Error(`LLM request timed out after ${timeoutMs}ms`);
+    const maxAttempts = 4;
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        // Prefer undici with a longer connect timeout; VPN/fake-ip paths often exceed the 10s default.
+        if (this.#fetch === fetch) {
+          const response = await undiciFetch(input, {
+            method: init.method,
+            headers: init.headers as Record<string, string>,
+            body: init.body as string | undefined,
+            signal: AbortSignal.timeout(timeoutMs),
+            dispatcher: llmDispatcher,
+          });
+          return response as unknown as Response;
+        }
+        return await this.#fetch(input, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+      } catch (error) {
+        lastError = error;
+        const isTimeout = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+        const cause = error instanceof Error && "cause" in error ? String((error as { cause?: unknown }).cause ?? "") : "";
+        const isNetwork = error instanceof TypeError
+          || (error instanceof Error && /fetch failed|ECONNRESET|ECONNREFUSED|ENOTFOUND|UND_ERR|socket|Connect Timeout/i.test(`${error.message} ${cause}`));
+        if (attempt >= maxAttempts || (!isTimeout && !isNetwork)) {
+          if (isTimeout) throw new Error(`LLM request timed out after ${timeoutMs}ms`);
+          if (error instanceof Error && cause) throw new Error(`${error.message}: ${cause}`);
+          throw error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 800 * attempt));
       }
-      throw error;
     }
+    throw lastError instanceof Error ? lastError : new Error("LLM request failed");
   }
 
   async probeProvider(): Promise<void> {

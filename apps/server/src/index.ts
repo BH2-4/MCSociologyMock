@@ -30,6 +30,8 @@ const decisionAdapter = llmValues.every(Boolean) ? new OpenAiCompatibleDecisionA
   nativeJsonSchema: false,
   toolJsonSchema: isMiniMaxModel,
   reasoningSplit: isMiniMaxModel,
+  // SiliconFlow / remote OpenAI-compatible providers can exceed the 30s default under load.
+  requestTimeoutMs: Number(process.env.PROGRAM_E_AI_TIMEOUT_MS ?? 90_000),
 }) : undefined;
 
 const x402Mode = process.env.X402_MODE ?? "mock";
