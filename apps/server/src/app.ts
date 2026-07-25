@@ -48,7 +48,7 @@ export function missingLlmProviderError(
 ) {
   return decisionMode === "llm" && !decisionAdapter ? {
     error: "LLM_PROVIDER_NOT_CONFIGURED",
-    required: ["LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL"],
+    required: ["PROGRAM_E_AI_BASE_URL", "PROGRAM_E_AI_API_KEY", "PROGRAM_E_AI_MODEL"],
   } : null;
 }
 

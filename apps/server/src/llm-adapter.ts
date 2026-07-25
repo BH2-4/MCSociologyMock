@@ -1,4 +1,4 @@
-import { hashObject, type DecisionRequest, type ExternalDecision } from "@agorasim/core";
+import { hashObject, type DecisionRequest, type ExternalDecision, type LlmAttemptAudit } from "@agorasim/core";
 import { z } from "zod";
 
 const actions = ["INSPECT_EVIDENCE", "CHAT", "POST", "BUY", "IDLE"] as const;
@@ -42,6 +42,7 @@ export interface LlmDecisionResult {
   model: string;
   requestHash: string;
   responseHash: string | null;
+  attemptAudit: LlmAttemptAudit[];
   usage: { promptTokens: number; completionTokens: number } | null;
 }
 
@@ -51,6 +52,8 @@ export interface OpenAiCompatibleConfig {
   model: string;
   maxTokens?: number;
   temperature?: number;
+  nativeJsonSchema?: boolean;
+  reasoningSplit?: boolean;
 }
 
 const responseJsonSchema = {
@@ -119,15 +122,19 @@ export class OpenAiCompatibleDecisionAdapter {
 
   async decide(observation: LlmObservation): Promise<LlmDecisionResult> {
     let lastResponseHash: string | null = null;
+    const attemptAudit: LlmAttemptAudit[] = [];
     const requestBody = {
       model: this.#config.model,
       temperature: this.#config.temperature ?? 0,
       max_tokens: this.#config.maxTokens ?? 500,
-      response_format: { type: "json_schema", json_schema: responseJsonSchema },
+      ...(this.#config.reasoningSplit ? { reasoning_split: true } : {}),
+      ...(this.#config.nativeJsonSchema === false ? {} : {
+        response_format: { type: "json_schema", json_schema: responseJsonSchema },
+      }),
       messages: [
         {
           role: "system",
-          content: "Choose one allowed action from visible information. Return only the JSON schema. Report a short decision summary and reason codes; do not provide hidden reasoning or chain-of-thought.",
+          content: `Choose one allowed action from visible information. Return only JSON matching this schema: ${JSON.stringify(responseJsonSchema.schema)}. Report a short decision summary and reason codes; do not provide hidden reasoning or chain-of-thought.`,
         },
         { role: "user", content: JSON.stringify(observation) },
       ],
@@ -143,32 +150,84 @@ export class OpenAiCompatibleDecisionAdapter {
         body: JSON.stringify(requestBody),
       });
       if (!response.ok) throw new Error(`LLM request failed with ${response.status}`);
+      const rawBody = await response.text();
+      let responseHash: string | null = null;
+      let usage: LlmAttemptAudit["usage"] = null;
+      let content: string;
       try {
-        const body = await response.json() as {
+        const body = JSON.parse(rawBody) as {
           choices?: Array<{ message?: { content?: string } }>;
           usage?: { prompt_tokens?: number; completion_tokens?: number };
         };
-        const content = body.choices?.[0]?.message?.content;
+        usage = body.usage ? {
+          promptTokens: body.usage.prompt_tokens ?? 0,
+          completionTokens: body.usage.completion_tokens ?? 0,
+        } : null;
+        content = body.choices?.[0]?.message?.content as string;
         if (typeof content !== "string") throw new Error("LLM response has no JSON content");
-        lastResponseHash = hashObject(content);
-        const decision = llmDecisionSchema.parse(JSON.parse(content));
+        responseHash = hashObject(content);
+        lastResponseHash = responseHash;
+      } catch {
+        attemptAudit.push({
+          attempt,
+          requestHash,
+          responseHash: null,
+          schemaValid: false,
+          referencesValid: null,
+          failureCode: "RESPONSE_INVALID",
+          usage,
+        });
+        continue;
+      }
+      let decision: LlmDecision;
+      try {
+        decision = llmDecisionSchema.parse(JSON.parse(content));
+      } catch {
+        attemptAudit.push({
+          attempt,
+          requestHash,
+          responseHash,
+          schemaValid: false,
+          referencesValid: null,
+          failureCode: "SCHEMA_INVALID",
+          usage,
+        });
+        continue;
+      }
+      try {
         validateReferences(decision, observation);
+        attemptAudit.push({
+          attempt,
+          requestHash,
+          responseHash,
+          schemaValid: true,
+          referencesValid: true,
+          failureCode: null,
+          usage,
+        });
         return {
           decision,
           attempts: attempt,
+          attemptAudit,
           schemaFailed: false,
           provider: "openai-compatible",
           model: this.#config.model,
           requestHash,
           responseHash: lastResponseHash,
-          usage: body.usage ? {
-            promptTokens: body.usage.prompt_tokens ?? 0,
-            completionTokens: body.usage.completion_tokens ?? 0,
-          } : null,
+          usage: aggregateUsage(attemptAudit),
         };
       } catch {
-        // PRD permits exactly two retries and no provider/model fallback.
+        attemptAudit.push({
+          attempt,
+          requestHash,
+          responseHash,
+          schemaValid: true,
+          referencesValid: false,
+          failureCode: "REFERENCE_INVALID",
+          usage,
+        });
       }
+      // PRD permits exactly two retries and no provider/model fallback.
     }
     return {
       decision: idleDecision(),
@@ -178,7 +237,8 @@ export class OpenAiCompatibleDecisionAdapter {
       model: this.#config.model,
       requestHash,
       responseHash: lastResponseHash,
-      usage: null,
+      attemptAudit,
+      usage: aggregateUsage(attemptAudit),
     };
   }
 
@@ -198,8 +258,18 @@ export class OpenAiCompatibleDecisionAdapter {
       requestHash: result.requestHash,
       responseHash: result.responseHash,
       attempts: result.attempts,
+      attemptAudit: result.attemptAudit,
       schemaFailed: result.schemaFailed,
       usage: result.usage,
     };
   }
+}
+
+function aggregateUsage(attempts: LlmAttemptAudit[]): LlmDecisionResult["usage"] {
+  const reported = attempts.flatMap((attempt) => attempt.usage ? [attempt.usage] : []);
+  if (reported.length === 0) return null;
+  return reported.reduce((total, usage) => ({
+    promptTokens: total.promptTokens + usage.promptTokens,
+    completionTokens: total.completionTokens + usage.completionTokens,
+  }), { promptTokens: 0, completionTokens: 0 });
 }

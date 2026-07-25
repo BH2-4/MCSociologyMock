@@ -19,7 +19,7 @@ describe("server", () => {
   it("fails an LLM run immediately when no provider is configured", () => {
     expect(missingLlmProviderError("llm")).toEqual({
       error: "LLM_PROVIDER_NOT_CONFIGURED",
-      required: ["LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL"],
+      required: ["PROGRAM_E_AI_BASE_URL", "PROGRAM_E_AI_API_KEY", "PROGRAM_E_AI_MODEL"],
     });
     expect(missingLlmProviderError("fixed-threshold")).toBeNull();
   });

@@ -55,12 +55,17 @@ describe("OpenAI-compatible decision adapter", () => {
     expect(result.decision.action).toBe("BUY");
     expect(result.attempts).toBe(3);
     expect(result.schemaFailed).toBe(false);
-    expect(result.usage).toEqual({ promptTokens: 100, completionTokens: 40 });
+    expect(result.usage).toEqual({ promptTokens: 300, completionTokens: 120 });
+    expect(result.attemptAudit).toEqual([
+      expect.objectContaining({ attempt: 1, failureCode: "SCHEMA_INVALID", schemaValid: false, referencesValid: null, usage: { promptTokens: 100, completionTokens: 40 } }),
+      expect.objectContaining({ attempt: 2, failureCode: "SCHEMA_INVALID", schemaValid: false, referencesValid: null, usage: { promptTokens: 100, completionTokens: 40 } }),
+      expect.objectContaining({ attempt: 3, failureCode: null, schemaValid: true, referencesValid: true, usage: { promptTokens: 100, completionTokens: 40 } }),
+    ]);
     expect(fetchFixture).toHaveBeenCalledTimes(3);
   });
 
   it("records IDLE after three invalid responses without changing provider", async () => {
-    const fetchFixture = vi.fn<typeof fetch>().mockResolvedValue(completion(JSON.stringify({ action: "BUY" })));
+    const fetchFixture = vi.fn<typeof fetch>().mockImplementation(async () => completion(JSON.stringify({ action: "BUY" })));
     const adapter = new OpenAiCompatibleDecisionAdapter({
       baseUrl: "https://llm.invalid/v1",
       apiKey: "test-only-key",
@@ -73,6 +78,9 @@ describe("OpenAI-compatible decision adapter", () => {
     expect(result.attempts).toBe(3);
     expect(result.schemaFailed).toBe(true);
     expect(result.provider).toBe("openai-compatible");
+    expect(result.usage).toEqual({ promptTokens: 300, completionTokens: 120 });
+    expect(result.attemptAudit).toHaveLength(3);
+    expect(result.attemptAudit.every((attempt) => !attempt.schemaValid)).toBe(true);
   });
 
   it("rejects citations to evidence absent from the observation", async () => {
@@ -89,14 +97,39 @@ describe("OpenAI-compatible decision adapter", () => {
         confidence: 0.5,
       },
     });
-    const fetchFixture = vi.fn<typeof fetch>().mockResolvedValue(completion(hallucinated));
+    const fetchFixture = vi.fn<typeof fetch>().mockImplementation(async () => completion(hallucinated));
     const adapter = new OpenAiCompatibleDecisionAdapter({
       baseUrl: "https://llm.invalid/v1",
       apiKey: "test-only-key",
       model: "fixture-model",
     }, fetchFixture);
 
-    expect((await adapter.decide(observation)).schemaFailed).toBe(true);
+    const result = await adapter.decide(observation);
+    expect(result.schemaFailed).toBe(true);
+    expect(result.attemptAudit).toHaveLength(3);
+    expect(result.attemptAudit.every((attempt) => attempt.failureCode === "REFERENCE_INVALID")).toBe(true);
+    expect(result.attemptAudit.every((attempt) => attempt.schemaValid && !attempt.referencesValid)).toBe(true);
+  });
+
+  it("does not hash malformed envelopes that contain only provider reasoning", async () => {
+    const malformed = () => new Response(JSON.stringify({
+      choices: [{ message: { reasoning_content: "provider-internal-content" } }],
+      usage: { prompt_tokens: 100, completion_tokens: 40 },
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+    const fetchFixture = vi.fn<typeof fetch>().mockImplementation(async () => malformed());
+    const adapter = new OpenAiCompatibleDecisionAdapter({
+      baseUrl: "https://llm.invalid/v1",
+      apiKey: "test-only-key",
+      model: "fixture-model",
+      reasoningSplit: true,
+    }, fetchFixture);
+
+    const result = await adapter.decide(observation);
+
+    expect(result.responseHash).toBeNull();
+    expect(result.attemptAudit).toHaveLength(3);
+    expect(result.attemptAudit.every((attempt) => attempt.responseHash === null)).toBe(true);
+    expect(result.attemptAudit.every((attempt) => attempt.failureCode === "RESPONSE_INVALID")).toBe(true);
   });
 
   it("fails immediately on provider HTTP errors instead of converting them to IDLE", async () => {
@@ -109,6 +142,62 @@ describe("OpenAI-compatible decision adapter", () => {
 
     await expect(adapter.decide(observation)).rejects.toThrow("LLM request failed with 503");
     expect(fetchFixture).toHaveBeenCalledTimes(1);
+  });
+
+  it("requests separated reasoning for providers that expose it", async () => {
+    const fetchFixture = vi.fn<typeof fetch>().mockResolvedValue(completion(JSON.stringify({
+      action: "IDLE",
+      target_ids: [],
+      content: "",
+      decision_summary: {
+        observed_claim_ids: [],
+        observed_evidence_ids: [],
+        credibility_assessment: 0.5,
+        reason_codes: ["WAIT_FOR_MORE_INFO"],
+        expected_outcome: "Wait.",
+        confidence: 0.5,
+      },
+    })));
+    const adapter = new OpenAiCompatibleDecisionAdapter({
+      baseUrl: "https://llm.invalid/v1",
+      apiKey: "test-only-key",
+      model: "fixture-model",
+      reasoningSplit: true,
+    }, fetchFixture);
+
+    await adapter.decide(observation);
+
+    const body = JSON.parse(String(fetchFixture.mock.calls[0]?.[1]?.body));
+    expect(body.reasoning_split).toBe(true);
+    expect(body.response_format.type).toBe("json_schema");
+  });
+
+  it("supports providers without native JSON Schema response format", async () => {
+    const fetchFixture = vi.fn<typeof fetch>().mockResolvedValue(completion(JSON.stringify({
+      action: "IDLE",
+      target_ids: [],
+      content: "",
+      decision_summary: {
+        observed_claim_ids: [],
+        observed_evidence_ids: [],
+        credibility_assessment: 0.5,
+        reason_codes: ["WAIT_FOR_MORE_INFO"],
+        expected_outcome: "Wait.",
+        confidence: 0.5,
+      },
+    })));
+    const adapter = new OpenAiCompatibleDecisionAdapter({
+      baseUrl: "https://llm.invalid/v1",
+      apiKey: "test-only-key",
+      model: "fixture-model",
+      nativeJsonSchema: false,
+    }, fetchFixture);
+
+    await adapter.decide(observation);
+
+    const body = JSON.parse(String(fetchFixture.mock.calls[0]?.[1]?.body));
+    expect(body.response_format).toBeUndefined();
+    expect(body.messages[0].content).toContain("Return only JSON matching this schema");
   });
 
   it("drives a full paired run from recorded OpenAI-compatible responses", async () => {
@@ -147,6 +236,7 @@ describe("OpenAI-compatible decision adapter", () => {
     expect(result.treatment.metrics.adoptedNonSeed).toBeGreaterThan(0);
     expect(result.treatment.decisions[0]?.requestHash).toMatch(/^[a-f0-9]{64}$/);
     expect(result.treatment.decisions[0]?.responseHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(result.treatment.decisions[0]?.attemptAudit).toHaveLength(1);
     expect(fetchFixture).toHaveBeenCalled();
   });
 });

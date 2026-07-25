@@ -15,14 +15,17 @@ const port = Number(process.env.SERVER_PORT ?? 4100);
 const store = new PostgresRunStore(databaseUrl);
 await store.migrate();
 
-const llmValues = [process.env.LLM_BASE_URL, process.env.LLM_API_KEY, process.env.LLM_MODEL];
-if (llmValues.some(Boolean) && !llmValues.every(Boolean)) {
-  throw new Error("LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL must be configured together");
-}
+const llmValues = [
+  process.env.PROGRAM_E_AI_BASE_URL,
+  process.env.PROGRAM_E_AI_API_KEY,
+  process.env.PROGRAM_E_AI_MODEL,
+];
 const decisionAdapter = llmValues.every(Boolean) ? new OpenAiCompatibleDecisionAdapter({
-  baseUrl: process.env.LLM_BASE_URL!,
-  apiKey: process.env.LLM_API_KEY!,
-  model: process.env.LLM_MODEL!,
+  baseUrl: process.env.PROGRAM_E_AI_BASE_URL!,
+  apiKey: process.env.PROGRAM_E_AI_API_KEY!,
+  model: process.env.PROGRAM_E_AI_MODEL!,
+  nativeJsonSchema: false,
+  reasoningSplit: process.env.PROGRAM_E_AI_MODEL!.startsWith("MiniMax-"),
 }) : undefined;
 
 const x402Mode = process.env.X402_MODE ?? "mock";

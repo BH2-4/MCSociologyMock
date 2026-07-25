@@ -6,14 +6,14 @@ Status date: 2026-07-25. `PASS` means reproducible code/test or inspected UI evi
 |---|---|---|
 | 24 heterogeneous consumers, one deterministic merchant, eight ticks | PASS | `packages/core/src/population.ts`, `runner.ts`; `runner.test.ts` |
 | Preregistration card and immutable `protocol_hash` | PASS | `packages/core/src/protocol.ts`; canonical hash tests |
-| Two branch wallets per logical consumer, equal balances, isolated addresses/nonces | PASS (Mock) / BLOCKED (funding) | deterministic address/ledger test passes; four funded real seed wallets are not configured |
+| Two branch wallets per logical consumer, equal balances, isolated addresses/nonces | PASS | deterministic address/ledger test passes; four distinct ignored local keys each hold 1 testnet USDC on chain 1439 and are mapped to branch-specific key refs |
 | `branch_diff_report` permits only operations and `receipt_visibility` | PASS | `protocol.test.ts` rejects a hidden price difference |
-| Two corresponding seeds buy the same product in both branches through real x402 | PASS (recording integration) / BLOCKED (real tx) | strict four-proof Fixture is replayed into branch wallets/events/Evidence; four funded keys, merchant and Gas wallet are missing |
+| Two corresponding seeds buy the same product in both branches through real x402 | PASS (recording integration) / BLOCKED (real tx) | strict four-proof Fixture is replayed into branch wallets/events/Evidence; funded keys, merchant and Gas wallet are locally configured, but the real payment command has not run |
 | Seed Claim author/body/Tick/channel/audience/content hash parity | PASS | paired runner Claim parity validation and test |
 | Control hides Evidence; Treatment adds only bounded summary | PASS | leakage/omission validation, UI branch toggle, runner tests |
 | `INSPECT_EVIDENCE`, `CHAT`, `POST`, `BUY`, `IDLE` legal events | PASS | fixed-threshold test and UI action coverage |
 | Real `PAYMENT-REQUIRED` -> policy -> `PAYMENT-SIGNATURE` -> `PAYMENT-RESPONSE` | PASS (contract) / BLOCKED (settlement) | official middleware localhost 402 smoke; `payment-adapter.test.ts`; no real receipt yet |
-| Four confirmed seed A2A testnet USDC payments with Blockscout links | BLOCKED | no funded keys/assets; no hashes claimed |
+| Four confirmed seed A2A testnet USDC payments with Blockscout links | BLOCKED | funded keys, merchant and facilitator are configured locally; `pnpm seed:testnet` has not run, so no hashes are claimed |
 | Non-seed Mock threshold path reaches BUY -> SETTLED -> FULFILLED -> VERIFIED_PURCHASE | PASS | paired threshold run adopts four non-seeds in recorded demo; event-chain test/UI |
 | Fulfilled purchases create bounded Evidence and Blockscout links | PASS (verifier) / BLOCKED (real links) | `evidence-verifier.test.ts`; real links require the four txs |
 | Wallet Policy rejects over-budget/invalid requirement before signing | PASS | six Wallet Policy tests plus signer-not-called contract test |
@@ -25,11 +25,11 @@ Status date: 2026-07-25. `PASS` means reproducible code/test or inspected UI evi
 | Compare shows paired difference, funnel, baselines and failure checks | PASS | per-Seed rows juxtapose LLM/Evidence-blind/Fixed-threshold and report direction instability; UI/E2E |
 | Replay calls no LLM, signer, or facilitator and rebuilds results | PASS | `replay.test.ts`, `pnpm replay:mock`, Replay API |
 | Export includes protocol/config/events/metrics/payment index but no secrets/thought chain | PASS | `export.ts` and redaction test |
-| Critical automated tests and one end-to-end Demo test | PASS | 52 unit/contract tests currently expected plus one scenario across desktop/mobile Playwright projects |
+| Critical automated tests and one end-to-end Demo test | PASS | focused core/server tests pass; the final full gate remains required after the online LLM and real settlement run |
 
 ## External blockers
 
-1. Docker Desktop's credential helper stalled while pulling `postgres:16-alpine`; a temporary credential-free Docker config bypassed it, but Docker Hub then returned `EOF` for the public manifest. PostgreSQL migration/save/read was therefore not integration-tested in this environment. No database fallback was added.
-2. No LLM endpoint/key/model is configured. The Adapter now drives the paired Runner and a recorded OpenAI-compatible Fixture validates the complete structured action/event/payment path; a paid online model run remains unverified.
-3. No merchant address, facilitator Gas key/service token, or four unique funded seed wallet key refs are configured. Each seed wallet needs at least 0.30 testnet USDC (0.35 recommended); the facilitator needs testnet INJ for four settlements.
-4. Because item 3 is unresolved, `fixtures/testnet-seed-receipts.json` does not exist and there are no Blockscout transaction links to report.
+1. PostgreSQL 16 was pulled through the AWS Public ECR Docker Official Images mirror after Docker Hub returned `EOF`. The Compose database is healthy; migration, transactional save, pair/event read and Replay were verified through the running API with `pair-82471cbb2adaa2a0`. No database fallback was added.
+2. The MiniMax Token Plan Base URL and `MiniMax-M2.7` model are configured, but `PROGRAM_E_AI_API_KEY` is intentionally blank until entered locally. The Adapter drives the paired Runner and a recorded OpenAI-compatible Fixture validates the structured action/event/payment path; an online model run remains unverified.
+3. A 300-wallet local CSV was validated without exposing secrets: 300 unique registered wallets, zero private-key/mnemonic/address mismatches, 300 wallets with 0.002 testnet INJ, and five wallets with 1 testnet USDC. Four funded seed keys, a distinct facilitator key/service token and a distinct merchant address are configured only in the ignored `0600` `.env`.
+4. The one-time real payment command has not run, so `fixtures/testnet-seed-receipts.json` does not exist and there are no Blockscout transaction links to report.

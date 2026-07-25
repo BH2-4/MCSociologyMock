@@ -374,6 +374,7 @@ function* runBranchMachine(config: BranchConfig, recordedSeedPayments?: Recorded
             requestHash: externalDecision.requestHash,
             responseHash: externalDecision.responseHash,
             attempts: externalDecision.attempts,
+            attemptAudit: externalDecision.attemptAudit,
             schemaFailed: externalDecision.schemaFailed,
             usage: externalDecision.usage,
           };

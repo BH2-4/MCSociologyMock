@@ -6,7 +6,9 @@ AgoraSim runs a paired synthetic-society experiment that tests whether a verifie
 
 ## Current status
 
-The deterministic and LLM-driven Mock/recorded paths, Wallet Policy, x402 v2 contract, receipt verifier, PostgreSQL API, SSE event stream, Replay, navigable Live Evidence Lab, multi-mode Compare view, and desktop/mobile E2E are implemented. Verified seed receipt Fixtures are replayed into the paired Runner, including branch wallet addresses, tx hashes, Evidence and Blockscout links. Real Injective testnet settlement has not been executed because funded branch wallets, a facilitator Gas key, a merchant address, and service credentials are not configured. No transaction hash is claimed until `fixtures/testnet-seed-receipts.json` is created by the real payment command.
+The deterministic and LLM-driven Mock/recorded paths, Wallet Policy, x402 v2 contract, receipt verifier, PostgreSQL API, SSE event stream, Replay, navigable Live Evidence Lab, multi-mode Compare view, and desktop/mobile E2E are implemented. Verified seed receipt Fixtures are replayed into the paired Runner, including branch wallet addresses, tx hashes, Evidence and Blockscout links.
+
+A local, ignored 300-wallet Injective testnet bundle was structurally and cryptographically verified. Chain audit on `eip155:1439` found all 300 wallets funded with 0.002 testnet INJ and five wallets funded with 1 testnet USDC. Four funded wallets are configured as branch-isolated seeds, a fifth as the facilitator, and a distinct sixth address as merchant; no secret is committed. PostgreSQL migration/save/read/Replay has also been exercised against the Compose database. Real settlement is still pending the locally entered Token Plan key and the one-time `pnpm seed:testnet` run. No transaction hash is claimed until `fixtures/testnet-seed-receipts.json` is created by that command.
 
 See [docs/DOD.md](./docs/DOD.md) for the PRD 16.2 evidence matrix.
 
@@ -52,7 +54,11 @@ Replay recalculates metrics from recorded events. Its output records `llmCalls: 
 
 ## OpenAI-compatible adapter
 
-Set `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL` in `.env`, then submit a run with `decisionMode: "llm"`. The single adapter uses `POST /chat/completions` with a strict JSON Schema, validates cited Claim/Evidence IDs against the observation, retries Schema failure twice, then records `IDLE`. Provider HTTP/network errors fail directly. The paired Runner records only explicit action summaries, visible references, model/request/response hashes, attempts and token usage; it never requests or stores hidden chain-of-thought. Online execution remains blocked until those three values are supplied; a recorded response Fixture drives a complete paired integration test without paid calls.
+Set `PROGRAM_E_AI_BASE_URL`, `PROGRAM_E_AI_API_KEY`, and `PROGRAM_E_AI_MODEL` in `.env`, then submit a run with `decisionMode: "llm"`. For the MiniMax China Token Plan, use `https://api.minimaxi.com/v1`, a Token Plan subscription key, and `MiniMax-M2.7`. The subscription key is not interchangeable with a pay-as-you-go API key. The single adapter uses `POST /chat/completions`, enforces a strict JSON Schema locally, validates cited Claim/Evidence IDs against the observation, retries invalid output twice, then records `IDLE`. Each attempt records its request/explicit-response hash, separate Schema/reference result, failure code and Token usage; usage is aggregated across retries. Provider HTTP/network errors fail directly.
+
+The Prompt never requests chain-of-thought. MiniMax documents that M2.x thinking cannot be disabled, so the adapter requests `reasoning_split` only to keep provider-generated reasoning outside the explicit JSON answer; those reasoning fields are immediately discarded, never hashed, persisted, exported, or shown. Only explicit decision summaries, visible references, reason codes and confidence enter the experiment record. A recorded response Fixture drives a complete paired integration test without paid calls.
+
+Official configuration sources: [Token Plan: other tools](https://platform.minimaxi.com/docs/token-plan/other-tools) and [OpenAI SDK](https://platform.minimaxi.com/docs/api-reference/text-openai-api).
 
 ## Injective testnet mode
 
@@ -68,6 +74,16 @@ Prepare `.env` with:
 - `X402_MODE=testnet`, `X402_FACILITATOR_URL`, and `PUBLIC_RESOURCE_BASE_URL`.
 
 Fund each of the four seed branch wallets with at least 0.30 testnet USDC; 0.35 is recommended. Fund the facilitator with enough testnet INJ for four settlements. Do not use mainnet or assets with real value.
+
+### Inputs required in a fresh checkout
+
+The current local instance satisfies these inputs through ignored `0600` files; they are intentionally absent from GitHub. Every fresh checkout must provide its own:
+
+- Provide one unique merchant address plus a dedicated facilitator private key and service token.
+- Provide four independent seed-wallet private-key references; fund each resolved wallet with 0.35 Injective testnet USDC.
+- Fund the facilitator wallet with Injective testnet INJ for Gas.
+
+Keep all private keys and service tokens only in the ignored local `.env` or an equivalent secret store. Never paste them into issues, commits, prompts, logs, or the browser.
 
 Start the independent services:
 

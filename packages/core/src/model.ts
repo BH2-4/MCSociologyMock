@@ -200,8 +200,19 @@ export interface DecisionRecord {
   requestHash?: string;
   responseHash?: string | null;
   attempts?: number;
+  attemptAudit?: LlmAttemptAudit[];
   schemaFailed?: boolean;
   usage?: { promptTokens: number; completionTokens: number } | null;
+}
+
+export interface LlmAttemptAudit {
+  attempt: number;
+  requestHash: string;
+  responseHash: string | null;
+  schemaValid: boolean;
+  referencesValid: boolean | null;
+  failureCode: "RESPONSE_INVALID" | "SCHEMA_INVALID" | "REFERENCE_INVALID" | null;
+  usage: { promptTokens: number; completionTokens: number } | null;
 }
 
 export interface DecisionRequest {
@@ -237,6 +248,7 @@ export interface ExternalDecision {
   requestHash: string;
   responseHash: string | null;
   attempts: number;
+  attemptAudit: LlmAttemptAudit[];
   schemaFailed: boolean;
   usage: { promptTokens: number; completionTokens: number } | null;
 }

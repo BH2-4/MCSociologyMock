@@ -25,6 +25,15 @@ function recordedDecision(request: DecisionRequest): ExternalDecision {
     requestHash: `request-${request.agent.id}-${request.tick}`,
     responseHash: `response-${request.agent.id}-${request.tick}`,
     attempts: 1,
+    attemptAudit: [{
+      attempt: 1,
+      requestHash: `request-${request.agent.id}-${request.tick}`,
+      responseHash: `response-${request.agent.id}-${request.tick}`,
+      schemaValid: true,
+      referencesValid: true,
+      failureCode: null,
+      usage: { promptTokens: 80, completionTokens: 30 },
+    }],
     schemaFailed: false,
     usage: { promptTokens: 80, completionTokens: 30 },
   };
