@@ -33,9 +33,11 @@ function fixture() {
         logicalAgentId,
         payer: `0x${digit.repeat(40)}`,
         fulfillmentId: `fulfillment:${branch}:${logicalAgentId}`,
+        fulfillmentMode: "LIVE_RESPONSE" as const,
         transaction,
         blockscoutUrl,
         requestedAt: "2026-07-25T00:00:00.000Z",
+        requestedAtSource: "CLIENT_CLOCK" as const,
         fulfilledAt: "2026-07-25T00:00:02.000Z",
         receipt: {
           success: true,

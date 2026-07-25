@@ -1,12 +1,13 @@
-import "./env.js";
-
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFile } from "node:fs/promises";
+
+import type { RecordedSeedPayment } from "@agorasim/core";
 
 import { createApp } from "./app.js";
 import { PostgresRunStore } from "./db.js";
+import { resolveWorkspacePath } from "./env.js";
 import { OpenAiCompatibleDecisionAdapter } from "./llm-adapter.js";
-import { loadSeedReceiptFixture } from "./seed-receipt-fixture.js";
+import { parsePartialSeedReceiptFixture, parseSeedReceiptFixture } from "./seed-receipt-fixture.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is required; no runtime database fallback is available");
@@ -38,10 +39,15 @@ const x402 = x402Mode === "testnet" ? {
   publicResourceBaseUrl: requiredEnvironment("PUBLIC_RESOURCE_BASE_URL"),
   merchantAddress: requiredEnvironment("MERCHANT_AGENT_ADDRESS") as `0x${string}`,
 } : undefined;
-const receiptFixturePath = resolve(process.env.TESTNET_RECEIPT_FIXTURE_PATH ?? "fixtures/testnet-seed-receipts.json");
-const recordedSeedPayments = x402Mode === "testnet" && existsSync(receiptFixturePath)
-  ? await loadSeedReceiptFixture(receiptFixturePath, x402!.merchantAddress)
-  : undefined;
+const receiptFixturePath = resolveWorkspacePath(process.env.TESTNET_RECEIPT_FIXTURE_PATH ?? "fixtures/testnet-seed-receipts.json");
+let recordedSeedPayments: RecordedSeedPayment[] | undefined;
+if (x402Mode === "testnet" && existsSync(receiptFixturePath)) {
+  const input = JSON.parse(await readFile(receiptFixturePath, "utf8")) as unknown;
+  const partial = parsePartialSeedReceiptFixture(input, x402!.merchantAddress);
+  recordedSeedPayments = partial.payments.length === 4
+    ? parseSeedReceiptFixture(partial, x402!.merchantAddress)
+    : undefined;
+}
 
 const server = createApp({
   store,

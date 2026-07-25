@@ -56,9 +56,11 @@ const seedProofSchema = z.object({
   logicalAgentId: z.enum(["consumer-01", "consumer-13"]),
   payer: addressSchema,
   fulfillmentId: z.string().min(1),
+  fulfillmentMode: z.enum(["LIVE_RESPONSE", "RECOVERED_CONFIRMED_SETTLEMENT"]),
   transaction: transactionSchema,
   blockscoutUrl: z.string().url(),
   requestedAt: z.string().refine((value) => Number.isFinite(Date.parse(value)), "INVALID_REQUESTED_AT"),
+  requestedAtSource: z.enum(["CLIENT_CLOCK", "SETTLEMENT_BLOCK_TIME_UPPER_BOUND"]),
   fulfilledAt: z.string().refine((value) => Number.isFinite(Date.parse(value)), "INVALID_FULFILLED_AT"),
   receipt: receiptSchema,
   evidence: evidenceSchema,
@@ -103,6 +105,11 @@ function parseFixture(
     if (transactions.has(proof.transaction.toLowerCase())) throw new Error("SEED_FIXTURE_TRANSACTION_REUSED");
     payers.add(proof.payer.toLowerCase());
     transactions.add(proof.transaction.toLowerCase());
+    if (
+      (proof.fulfillmentMode === "LIVE_RESPONSE" && proof.requestedAtSource !== "CLIENT_CLOCK")
+      || (proof.fulfillmentMode === "RECOVERED_CONFIRMED_SETTLEMENT"
+        && proof.requestedAtSource !== "SETTLEMENT_BLOCK_TIME_UPPER_BOUND")
+    ) throw new Error("SEED_FIXTURE_TIMELINE_PROVENANCE_INVALID");
 
     const expectedUrl = `${BLOCKSCOUT_TESTNET_URL}/tx/${proof.transaction}`;
     const verifiedEvidence = verifyPurchaseEvidence({

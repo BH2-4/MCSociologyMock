@@ -74,12 +74,17 @@ export function registerX402Resource(app: Express, config: X402ResourceConfig): 
       response.statusCode,
       response.getHeader("PAYMENT-RESPONSE"),
     ));
-    response.status(200).json({
+    const body = JSON.stringify({
       offerId: "offer_eco_cup",
       fulfillmentId: fulfillment.fulfillmentId,
       status: "FULFILLED_ON_SETTLEMENT_RELEASE",
       disclaimer: "Test asset with no real value.",
     });
+    response.status(200).type("application/json");
+    // x402 0.0.1 only replays a valid status line after settlement when the
+    // handler explicitly records writeHead before ending the buffered body.
+    response.writeHead(200);
+    response.end(body);
   });
 }
 

@@ -8,7 +8,7 @@ AgoraSim runs a paired synthetic-society experiment that tests whether a verifie
 
 The deterministic and LLM-driven Mock/recorded paths, Wallet Policy, x402 v2 contract, receipt verifier, PostgreSQL API, SSE event stream, Replay, navigable Live Evidence Lab, multi-mode Compare view, and desktop/mobile E2E are implemented. Verified seed receipt Fixtures are replayed into the paired Runner, including branch wallet addresses, tx hashes, Evidence and Blockscout links.
 
-A local, ignored 300-wallet Injective testnet bundle was structurally and cryptographically verified. Chain audit on `eip155:1439` found all 300 wallets funded with 0.002 testnet INJ and five wallets funded with 1 testnet USDC. Four funded wallets are configured as branch-isolated seeds, a fifth as the facilitator, and a distinct sixth address as merchant; no secret is committed. PostgreSQL migration/save/read/Replay has also been exercised against the Compose database. Real settlement is still pending the locally entered Token Plan key and the one-time `pnpm seed:testnet` run. No transaction hash is claimed until `fixtures/testnet-seed-receipts.json` is created by that command.
+A local, ignored 300-wallet Injective testnet bundle was structurally and cryptographically verified. Chain audit on `eip155:1439` found all 300 wallets funded with 0.002 testnet INJ and five wallets funded with 1 testnet USDC. Four funded wallets are configured as branch-isolated seeds, a fifth as the facilitator, and a distinct sixth address as merchant; no secret is committed. All four seed payments are confirmed in `fixtures/testnet-seed-receipts.json`: every seed now holds 0.70 testnet USDC, the merchant received 1.20 testnet USDC, and all four bounded Evidence records validate. A testnet-backed paired run restored Evidence-blind `0` and Fixed-threshold `+4/22`. PostgreSQL migration/save/read/Replay has also been exercised against the Compose database. The only remaining external runtime input is a locally entered Token Plan key for one online MiniMax run.
 
 See [docs/DOD.md](./docs/DOD.md) for the PRD 16.2 evidence matrix.
 
@@ -32,7 +32,7 @@ pnpm dev
 - API: `http://localhost:4100`
 - Health: `http://localhost:4100/health`
 
-The root `.env` is loaded by the Node entrypoints and is ignored by Git. `X402_MODE=mock` is the only development mode. The UI includes a deterministic recorded result so its read-only evidence chain remains inspectable if the API is stopped; an API failure is shown explicitly and never triggers another payment or storage fallback.
+The root `.env` is loaded by the Node entrypoints and is ignored by Git. `X402_MODE=mock` is the default development mode. The UI includes a deterministic recorded result so its read-only evidence chain remains inspectable if the API is stopped; an API failure is shown explicitly and never triggers another payment or storage fallback.
 
 Create deterministic paired runs through the UI or API:
 
@@ -102,7 +102,22 @@ pnpm seed:testnet
 
 The command enforces Wallet Policy before `createPayment`, validates the confirmed USDC `Transfer` log with viem, creates bounded Evidence, and writes each completed payment immediately to `fixtures/testnet-seed-receipts.json`. Existing `(branch, logicalAgentId)` entries are strictly validated and skipped so reruns do not intentionally pay twice.
 
+The repository Fixture contains these confirmed testnet transactions:
+
+- [`0xbafe527a9daaf3bec84c2be4fffee113caaedfa52097e464082604f5ac51b211`](https://testnet.blockscout.injective.network/tx/0xbafe527a9daaf3bec84c2be4fffee113caaedfa52097e464082604f5ac51b211)
+- [`0xf18a81c0fb7392133e34a21d8ead8fbaf6c0b59cf3b15cd7ff44bac0734248f2`](https://testnet.blockscout.injective.network/tx/0xf18a81c0fb7392133e34a21d8ead8fbaf6c0b59cf3b15cd7ff44bac0734248f2)
+- [`0xfcb322d243e650fb9dd682775539e97ad3ea2452a329923954cf2778a7e2be1b`](https://testnet.blockscout.injective.network/tx/0xfcb322d243e650fb9dd682775539e97ad3ea2452a329923954cf2778a7e2be1b)
+- [`0xf80c90265e1ae0a01a5bf9675e3d7f733eacd3e89db864dc61525d97d2c4844f`](https://testnet.blockscout.injective.network/tx/0xf80c90265e1ae0a01a5bf9675e3d7f733eacd3e89db864dc61525d97d2c4844f)
+
+The first two transfers encountered the testnet RPC's missing single-hash receipt index. They were reconciled against the exact chain ID, transaction hash, USDC contract, payer, merchant, amount, block and `Transfer` log before their simulated ownership credentials were delivered. The Fixture labels recovered fulfillment and reconstructed timestamp provenance explicitly. No transaction was repeated.
+
 After all four payments finish, restart the API. Testnet experiment creation is rejected with `TESTNET_SEED_RECEIPTS_NOT_READY` until the complete Fixture is loaded. Once loaded, paired runs consume the four recorded receipts and never sign or settle them again.
+
+Official references:
+
+- [x402](https://docs.injective.network/developers-ai/x402), Injective Docs, updated 2026-06-01.
+- [EVM Network Information](https://docs.injective.network/developers-evm/network-information), Injective Docs, publication time not stated; retrieved 2026-07-25.
+- [USDC on Injective](https://docs.injective.network/developers-defi/usdc-stablecoin), Injective Docs, publication time not stated; retrieved 2026-07-25.
 
 ## Verification
 

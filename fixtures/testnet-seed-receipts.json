@@ -1,0 +1,202 @@
+{
+  "schemaVersion": 1,
+  "network": "eip155:1439",
+  "asset": "0x0C382e685bbeeFE5d3d9C29e29E341fEE8E84C5d",
+  "amount": "300000",
+  "merchantAddress": "0x24f0Ce74824C778376c4dC0f3eEBFBEAd0f52c85",
+  "generatedAt": "2026-07-25T02:41:00.884Z",
+  "payments": [
+    {
+      "branch": "control",
+      "logicalAgentId": "consumer-01",
+      "payer": "0x3eDed05E849d862f0Cc708E56e14c58c237cE69e",
+      "fulfillmentId": "fulfillment:aba6fe4b17d27f251c58",
+      "fulfillmentMode": "RECOVERED_CONFIRMED_SETTLEMENT",
+      "transaction": "0xbafe527a9daaf3bec84c2be4fffee113caaedfa52097e464082604f5ac51b211",
+      "blockscoutUrl": "https://testnet.blockscout.injective.network/tx/0xbafe527a9daaf3bec84c2be4fffee113caaedfa52097e464082604f5ac51b211",
+      "requestedAt": "2026-07-25T02:14:18.000Z",
+      "requestedAtSource": "SETTLEMENT_BLOCK_TIME_UPPER_BOUND",
+      "fulfilledAt": "2026-07-25T02:41:00.883Z",
+      "receipt": {
+        "success": true,
+        "transaction": "0xbafe527a9daaf3bec84c2be4fffee113caaedfa52097e464082604f5ac51b211",
+        "network": "eip155:1439",
+        "payer": "0x3eDed05E849d862f0Cc708E56e14c58c237cE69e",
+        "payTo": "0x24f0Ce74824C778376c4dC0f3eEBFBEAd0f52c85",
+        "asset": "0x0C382e685bbeeFE5d3d9C29e29E341fEE8E84C5d",
+        "amount": "300000",
+        "confirmations": 1938,
+        "settledAt": "2026-07-25T02:14:18.000Z"
+      },
+      "evidence": {
+        "id": "evidence:seed:control:consumer-01",
+        "subjectAgentId": "consumer-01",
+        "paymentId": "seed:control:consumer-01",
+        "productId": "offer_eco_cup",
+        "merchantId": "merchant-01",
+        "amount": "300000",
+        "status": "VERIFIED",
+        "proofScope": [
+          "PURCHASE_OCCURRED",
+          "AMOUNT",
+          "MERCHANT",
+          "TIME"
+        ],
+        "doesNotProve": [
+          "PRODUCT_QUALITY",
+          "ACTUAL_USAGE",
+          "REVIEW_TRUTH",
+          "RECOMMENDATION_MOTIVE"
+        ],
+        "verifiedAtTick": 1,
+        "txHash": "0xbafe527a9daaf3bec84c2be4fffee113caaedfa52097e464082604f5ac51b211",
+        "blockscoutUrl": "https://testnet.blockscout.injective.network/tx/0xbafe527a9daaf3bec84c2be4fffee113caaedfa52097e464082604f5ac51b211",
+        "source": "INJECTIVE_TESTNET"
+      }
+    },
+    {
+      "branch": "control",
+      "logicalAgentId": "consumer-13",
+      "payer": "0xe4c36Fb70a2C78FCF815abaC30F5fd191a06a601",
+      "fulfillmentId": "fulfillment:70b9bd645a866682b56a",
+      "fulfillmentMode": "RECOVERED_CONFIRMED_SETTLEMENT",
+      "transaction": "0xf18a81c0fb7392133e34a21d8ead8fbaf6c0b59cf3b15cd7ff44bac0734248f2",
+      "blockscoutUrl": "https://testnet.blockscout.injective.network/tx/0xf18a81c0fb7392133e34a21d8ead8fbaf6c0b59cf3b15cd7ff44bac0734248f2",
+      "requestedAt": "2026-07-25T02:52:02.000Z",
+      "requestedAtSource": "SETTLEMENT_BLOCK_TIME_UPPER_BOUND",
+      "fulfilledAt": "2026-07-25T02:58:24.405Z",
+      "receipt": {
+        "success": true,
+        "transaction": "0xf18a81c0fb7392133e34a21d8ead8fbaf6c0b59cf3b15cd7ff44bac0734248f2",
+        "network": "eip155:1439",
+        "payer": "0xe4c36Fb70a2C78FCF815abaC30F5fd191a06a601",
+        "payTo": "0x24f0Ce74824C778376c4dC0f3eEBFBEAd0f52c85",
+        "asset": "0x0C382e685bbeeFE5d3d9C29e29E341fEE8E84C5d",
+        "amount": "300000",
+        "confirmations": 460,
+        "settledAt": "2026-07-25T02:52:02.000Z"
+      },
+      "evidence": {
+        "id": "evidence:seed:control:consumer-13",
+        "subjectAgentId": "consumer-13",
+        "paymentId": "seed:control:consumer-13",
+        "productId": "offer_eco_cup",
+        "merchantId": "merchant-01",
+        "amount": "300000",
+        "status": "VERIFIED",
+        "proofScope": [
+          "PURCHASE_OCCURRED",
+          "AMOUNT",
+          "MERCHANT",
+          "TIME"
+        ],
+        "doesNotProve": [
+          "PRODUCT_QUALITY",
+          "ACTUAL_USAGE",
+          "REVIEW_TRUTH",
+          "RECOMMENDATION_MOTIVE"
+        ],
+        "verifiedAtTick": 1,
+        "txHash": "0xf18a81c0fb7392133e34a21d8ead8fbaf6c0b59cf3b15cd7ff44bac0734248f2",
+        "blockscoutUrl": "https://testnet.blockscout.injective.network/tx/0xf18a81c0fb7392133e34a21d8ead8fbaf6c0b59cf3b15cd7ff44bac0734248f2",
+        "source": "INJECTIVE_TESTNET"
+      }
+    },
+    {
+      "branch": "treatment",
+      "logicalAgentId": "consumer-01",
+      "payer": "0x7b55957bCC3FD2B468df2A1bb0D1b557e9F20ede",
+      "fulfillmentId": "fulfillment:487edbbcaf59e2f7e2cf",
+      "fulfillmentMode": "LIVE_RESPONSE",
+      "transaction": "0xfcb322d243e650fb9dd682775539e97ad3ea2452a329923954cf2778a7e2be1b",
+      "blockscoutUrl": "https://testnet.blockscout.injective.network/tx/0xfcb322d243e650fb9dd682775539e97ad3ea2452a329923954cf2778a7e2be1b",
+      "requestedAt": "2026-07-25T03:00:32.164Z",
+      "requestedAtSource": "CLIENT_CLOCK",
+      "fulfilledAt": "2026-07-25T03:03:41.711Z",
+      "receipt": {
+        "success": true,
+        "transaction": "0xfcb322d243e650fb9dd682775539e97ad3ea2452a329923954cf2778a7e2be1b",
+        "network": "eip155:1439",
+        "payer": "0x7b55957bCC3FD2B468df2A1bb0D1b557e9F20ede",
+        "payTo": "0x24f0Ce74824C778376c4dC0f3eEBFBEAd0f52c85",
+        "asset": "0x0C382e685bbeeFE5d3d9C29e29E341fEE8E84C5d",
+        "amount": "300000",
+        "confirmations": 223,
+        "settledAt": "2026-07-25T03:00:35.000Z"
+      },
+      "evidence": {
+        "id": "evidence:seed:treatment:consumer-01",
+        "subjectAgentId": "consumer-01",
+        "paymentId": "seed:treatment:consumer-01",
+        "productId": "offer_eco_cup",
+        "merchantId": "merchant-01",
+        "amount": "300000",
+        "status": "VERIFIED",
+        "proofScope": [
+          "PURCHASE_OCCURRED",
+          "AMOUNT",
+          "MERCHANT",
+          "TIME"
+        ],
+        "doesNotProve": [
+          "PRODUCT_QUALITY",
+          "ACTUAL_USAGE",
+          "REVIEW_TRUTH",
+          "RECOMMENDATION_MOTIVE"
+        ],
+        "verifiedAtTick": 1,
+        "txHash": "0xfcb322d243e650fb9dd682775539e97ad3ea2452a329923954cf2778a7e2be1b",
+        "blockscoutUrl": "https://testnet.blockscout.injective.network/tx/0xfcb322d243e650fb9dd682775539e97ad3ea2452a329923954cf2778a7e2be1b",
+        "source": "INJECTIVE_TESTNET"
+      }
+    },
+    {
+      "branch": "treatment",
+      "logicalAgentId": "consumer-13",
+      "payer": "0xEfDC0873B84720857ee4385B78FF77bCCc37953C",
+      "fulfillmentId": "fulfillment:3fa1cc57df388d1e5946",
+      "fulfillmentMode": "LIVE_RESPONSE",
+      "transaction": "0xf80c90265e1ae0a01a5bf9675e3d7f733eacd3e89db864dc61525d97d2c4844f",
+      "blockscoutUrl": "https://testnet.blockscout.injective.network/tx/0xf80c90265e1ae0a01a5bf9675e3d7f733eacd3e89db864dc61525d97d2c4844f",
+      "requestedAt": "2026-07-25T03:03:41.717Z",
+      "requestedAtSource": "CLIENT_CLOCK",
+      "fulfilledAt": "2026-07-25T03:06:52.892Z",
+      "receipt": {
+        "success": true,
+        "transaction": "0xf80c90265e1ae0a01a5bf9675e3d7f733eacd3e89db864dc61525d97d2c4844f",
+        "network": "eip155:1439",
+        "payer": "0xEfDC0873B84720857ee4385B78FF77bCCc37953C",
+        "payTo": "0x24f0Ce74824C778376c4dC0f3eEBFBEAd0f52c85",
+        "asset": "0x0C382e685bbeeFE5d3d9C29e29E341fEE8E84C5d",
+        "amount": "300000",
+        "confirmations": 225,
+        "settledAt": "2026-07-25T03:03:45.000Z"
+      },
+      "evidence": {
+        "id": "evidence:seed:treatment:consumer-13",
+        "subjectAgentId": "consumer-13",
+        "paymentId": "seed:treatment:consumer-13",
+        "productId": "offer_eco_cup",
+        "merchantId": "merchant-01",
+        "amount": "300000",
+        "status": "VERIFIED",
+        "proofScope": [
+          "PURCHASE_OCCURRED",
+          "AMOUNT",
+          "MERCHANT",
+          "TIME"
+        ],
+        "doesNotProve": [
+          "PRODUCT_QUALITY",
+          "ACTUAL_USAGE",
+          "REVIEW_TRUTH",
+          "RECOMMENDATION_MOTIVE"
+        ],
+        "verifiedAtTick": 1,
+        "txHash": "0xf80c90265e1ae0a01a5bf9675e3d7f733eacd3e89db864dc61525d97d2c4844f",
+        "blockscoutUrl": "https://testnet.blockscout.injective.network/tx/0xf80c90265e1ae0a01a5bf9675e3d7f733eacd3e89db864dc61525d97d2c4844f",
+        "source": "INJECTIVE_TESTNET"
+      }
+    }
+  ]
+}

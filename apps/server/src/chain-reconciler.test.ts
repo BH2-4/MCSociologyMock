@@ -2,7 +2,7 @@ import { encodeAbiParameters, encodeEventTopics, type Address, type Hex } from "
 import { describe, expect, it } from "vitest";
 
 import { reconcileTransfer, type ReceiptReader } from "./chain-reconciler.js";
-import { ECO_CUP_AMOUNT, INJECTIVE_TESTNET_USDC } from "./x402-constants.js";
+import { ECO_CUP_AMOUNT, INJECTIVE_TESTNET_NETWORK, INJECTIVE_TESTNET_USDC } from "./x402-constants.js";
 
 const payer = "0x1111111111111111111111111111111111111111" as const;
 const merchant = "0x2222222222222222222222222222222222222222" as const;
@@ -19,6 +19,7 @@ function reader(to: Address = merchant): ReceiptReader {
     args: { from: payer, to },
   });
   return {
+    async getChainId() { return 1_439; },
     async getTransactionReceipt() {
       return {
         status: "success",
@@ -38,6 +39,7 @@ function reader(to: Address = merchant): ReceiptReader {
 describe("Injective receipt reconciler", () => {
   it("matches confirmed USDC Transfer fields and block time", async () => {
     const reconciled = await reconcileTransfer(reader(), {
+      network: INJECTIVE_TESTNET_NETWORK,
       transaction,
       payer,
       payTo: merchant,
@@ -52,11 +54,23 @@ describe("Injective receipt reconciler", () => {
 
   it("rejects a transfer to a different merchant", async () => {
     await expect(reconcileTransfer(reader(payer), {
+      network: INJECTIVE_TESTNET_NETWORK,
       transaction,
       payer,
       payTo: merchant,
       asset: INJECTIVE_TESTNET_USDC,
       amount: ECO_CUP_AMOUNT,
     })).rejects.toThrow("TRANSFER_LOG_MISMATCH");
+  });
+
+  it("rejects receipt data from an RPC on another chain", async () => {
+    await expect(reconcileTransfer({ ...reader(), getChainId: async () => 1 }, {
+      network: INJECTIVE_TESTNET_NETWORK,
+      transaction,
+      payer,
+      payTo: merchant,
+      asset: INJECTIVE_TESTNET_USDC,
+      amount: ECO_CUP_AMOUNT,
+    })).rejects.toThrow("RPC_CHAIN_ID_MISMATCH");
   });
 });

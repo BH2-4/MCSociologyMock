@@ -1,8 +1,6 @@
-import "./env.js";
-
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname } from "node:path";
 
 import { createPayment } from "@injectivelabs/x402/client";
 import { injectiveEvmTestnet } from "@injectivelabs/x402/networks";
@@ -10,6 +8,7 @@ import { createPublicClient, http, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
 import { reconcileTransfer } from "./chain-reconciler.js";
+import { resolveWorkspacePath } from "./env.js";
 import { verifyPurchaseEvidence } from "./evidence-verifier.js";
 import { executeX402Payment } from "./payment-adapter.js";
 import {
@@ -23,14 +22,19 @@ import {
   BLOCKSCOUT_TESTNET_URL,
   ECO_CUP_AMOUNT,
   ECO_CUP_SERVICE_ID,
+  INJECTIVE_TESTNET_CHAIN_ID,
+  INJECTIVE_TESTNET_NETWORK,
   INJECTIVE_TESTNET_USDC,
 } from "./x402-constants.js";
 
-const fixturePath = resolve(process.env.TESTNET_RECEIPT_FIXTURE_PATH ?? "fixtures/testnet-seed-receipts.json");
+const fixturePath = resolveWorkspacePath(process.env.TESTNET_RECEIPT_FIXTURE_PATH ?? "fixtures/testnet-seed-receipts.json");
 const resourceUrl = requiredEnvironment("PUBLIC_RESOURCE_BASE_URL").replace(/\/$/, "") + "/x402/offers/eco-cup";
 const merchantAddress = requiredEnvironment("MERCHANT_AGENT_ADDRESS") as `0x${string}`;
 const rpcUrl = process.env.INJECTIVE_EVM_RPC_URL ?? "https://k8s.testnet.json-rpc.injective.network";
 const publicClient = createPublicClient({ chain: injectiveEvmTestnet, transport: http(rpcUrl) });
+if (await publicClient.getChainId() !== INJECTIVE_TESTNET_CHAIN_ID) {
+  throw new Error(`Injective testnet RPC must report chain ID ${INJECTIVE_TESTNET_CHAIN_ID}`);
+}
 const seeds = [
   { branch: "control", logicalAgentId: "consumer-01", keyRef: requiredEnvironment("CONTROL_SEED_01_KEY_REF") },
   { branch: "control", logicalAgentId: "consumer-13", keyRef: requiredEnvironment("CONTROL_SEED_02_KEY_REF") },
@@ -94,6 +98,7 @@ for (const seed of seeds) {
   const fulfillment = await payment.response.json() as { fulfillmentId?: string };
   if (!fulfillment.fulfillmentId) throw new Error("Paid resource did not return a fulfillment ID");
   const receipt = await reconcileTransfer(publicClient, {
+    network: INJECTIVE_TESTNET_NETWORK,
     transaction: payment.receipt.transaction,
     payer: account.address,
     payTo: merchantAddress,
@@ -123,9 +128,11 @@ for (const seed of seeds) {
     logicalAgentId: seed.logicalAgentId,
     payer: account.address,
     fulfillmentId: fulfillment.fulfillmentId,
+    fulfillmentMode: "LIVE_RESPONSE",
     transaction: receipt.transaction,
     blockscoutUrl: `${BLOCKSCOUT_TESTNET_URL}/tx/${receipt.transaction}`,
     requestedAt,
+    requestedAtSource: "CLIENT_CLOCK",
     fulfilledAt,
     receipt: receipt as SeedProof["receipt"],
     evidence: evidence as SeedProof["evidence"],
