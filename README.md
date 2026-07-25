@@ -12,6 +12,29 @@ A local, ignored 300-wallet Injective testnet bundle was structurally and crypto
 
 See [docs/DOD.md](./docs/DOD.md) for the PRD 16.2 evidence matrix.
 
+## P1: ZZZ 3.1 Japan publishing lab
+
+The pre-launch P1 case is available at `http://localhost:3000/p1` after `pnpm dev`. It is fixed to Japan, Zenless Zone Zero Ver.3.1, and Remiel (`レミエール`). The four workspaces are Market Fit, Audience Map, Strategy Lab, and Outcome & Calibration.
+
+P1 loads the public Source Bundle R14-R17, freezes a version Snapshot, builds four historical Japan iOS analog cards, and runs two paired message-positioning branches over the same 24-agent population and keyed random field:
+
+- `COMBAT_VALUE_FIRST` (Control)
+- `CHARACTER_AFFINITY_FIRST` (Treatment)
+
+P1 uses only a Synthetic Spend Ledger. Its normalized units are not yen, Polychromes, pulls, USDC, or revenue. The initial state is `AWAITING_POSTLAUNCH_OBSERVATION`; the UI does not fabricate the 2026-07-29, `T+24h`, or `T+72h` public observations. P1 API endpoints are:
+
+```bash
+curl -X POST http://localhost:4100/v1/experiments/zzz-3.1-jp/runs \
+  -H 'Content-Type: application/json' \
+  -d '{"protocolSeed":"zzz-jp-seed-01","agentCount":24}'
+
+curl -X POST http://localhost:4100/v1/experiments/zzz-3.1-jp/replay \
+  -H 'Content-Type: application/json' \
+  -d '{"protocolSeed":"zzz-jp-seed-01","agentCount":24}'
+```
+
+The API runs the deterministic core on the server, and the web bundle imports only P1 types. Replay has zero network, LLM, and ledger-write side effects inside the recorded calculation. After the real version launch, append only public Japanese mobile ranking or official-interaction observations through the validated observation contract; never overwrite the Snapshot or preregistration.
+
 ## Requirements
 
 - Node.js 20+

@@ -33,3 +33,30 @@ Status date: 2026-07-25. `PASS` means reproducible code/test or inspected UI evi
 2. The MiniMax Token Plan Base URL, `MiniMax-M2.7` model and a rotated subscription key are configured only in the ignored local environment. Client concurrency remained one and the Runner completed Control before Treatment. Two initial full attempts failed directly on provider HTTP `529` and a later transport failure; neither persisted a partial pair. A one-Agent diagnostic exposed repeated 500-token truncation, after which the Adapter was aligned with MiniMax's documented tool-call response and `max_completion_tokens`. The final diagnostic passed, followed by the complete online Pair `pair-ccdd15dc5e91285c`: 24 Agents, eight Ticks, zero final Schema failures, Claim parity, zero Control Evidence leakage, zero Treatment omission, isolated wallets, payment parity and both conservation checks. Its unmodified result was negative (`-4/22`): Control `18.18%`, Treatment `0%`. Replay event hash `3dcfab7a...e21` rebuilt the result with zero LLM/signature/facilitator calls. Redacted evidence is in `fixtures/online-mini-validation.json` and `fixtures/online-llm-run-audit.json`.
 3. A 300-wallet local CSV was validated without exposing secrets: 300 unique registered wallets, zero private-key/mnemonic/address mismatches, and the initial audit found 0.002 testnet INJ on all wallets plus 1 testnet USDC on five wallets. Four seed keys, a distinct facilitator key/service token and a distinct merchant address are configured only in the ignored `0600` `.env`; settlement changed only the expected seed, merchant and facilitator balances.
 4. Four real payments are complete. The RPC returned canonical blocks/logs but omitted single-hash receipt indexing for the first two transactions; the recovery path required exact chain ID, tx, payer, merchant, asset, amount, block and EIP-3009 calldata before atomically delivering the digital entitlement. No payment was repeated.
+
+## P1 Definition of Done Evidence
+
+Status date: 2026-07-25. P1 is implemented through the pre-launch waiting state; no post-launch public data is claimed before the real release window.
+
+| PRD 16.3 requirement | Status | Evidence |
+|---|---|---|
+| Four-workspace P1 workflow | PASS | `apps/web/app/p1/page.tsx`, `publishing-console.tsx`; Market Fit, Audience Map, Strategy Lab and Outcome & Calibration are reachable from the P1 navigation. |
+| R14-R17 Public Source Bundle with hashes and provenance | PASS | `packages/core/src/publishing-data.ts`, `publishing-data.test.ts`; source tier, timestamps, platform scope, methodology, license status and content hashes are checked. |
+| Immutable 3.1 Japan Snapshot | PASS | `createPublishingSnapshot()` locks version, market, Remiel, release, cutoff, bundle hash, confounders and waiting status; nested arrays are frozen. |
+| Market Fit platform and revenue boundary | PASS | `MARKET_FIT_SNAPSHOT` distinguishes Japan mobile proxies from PlayStation/PC gaps and rejects all-platform revenue claims. |
+| Four historical analog cards | PASS | Game-i ordinal windows for Miyabi, Astra, Yixuan and Yuzuha with non-comparable factors and rough-estimate labels. |
+| Audience Map provenance | PASS | `createPublishingPopulation()` emits six Japan-internal segments, platform/activity/affinity/budget states and field-level provenance. |
+| Preregistered single treatment | PASS | `lockPublishingProtocol()` hashes the prompt, 72-hour window, primary metric, alternatives and failure criteria. |
+| Localization Gate and branch diff | PASS | `validateLocalizationGate()` and `validatePublishingBranchDiff()` reject fact, material, exposure, population or network changes; tampering test passes. |
+| 24-agent paired Seed and required actions | PASS | `runPublishingPair("zzz-jp-seed-01")` completes eight ticks; action coverage includes all ten P1 action types. |
+| Synthetic Spend Ledger | PASS | Ledger separates opening currency, normalized free reward, planned pull, simulated top-up and zero other-banner spend; conservation test passes. |
+| Publishing Report | PASS | `createPublishingReport()` emits paired difference, funnel, segment effects, checks, bounded recommendation and limitations. |
+| Pre-launch waiting state | PASS | Snapshot, pair result, report and UI remain `AWAITING_POSTLAUNCH_OBSERVATION` with an empty observation list. |
+| Post-launch observation gate | PASS (contract) | `createPublicProxyObservation()` rejects early observations and validates source/time/value; report transitions only when all three points exist. |
+| Disclaimer and attribution boundary | PASS | UI footer, report disclaimer and README state that synthetic units and mobile proxies do not represent Japan all-platform or single-character revenue. |
+| Replay and export path | PASS | P1 Replay returns identical metrics and zero network/LLM/ledger side effects; UI exports the recorded report/result JSON. |
+| Automated verification | PASS (pre-launch) | 25 core tests, 46 server tests, Web typecheck, Next production build, and four P0/P1 Playwright journeys across desktop/mobile pass on a clean test port. |
+
+### P1 remaining gate
+
+The P1 implementation cannot be marked fully complete until the actual Version 3.1 release has occurred and the real public observations at `T_release`, `T+24h`, and `T+72h` have been collected and independently reviewed. No fixture or synthetic value satisfies that gate.

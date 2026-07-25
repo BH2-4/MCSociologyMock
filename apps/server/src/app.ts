@@ -2,7 +2,10 @@ import cors from "cors";
 import express from "express";
 import {
   hashObject,
+  createPublishingReport,
+  replayPublishingPair,
   replayPairedExperiment,
+  runPublishingPair,
   runPairedExperiment,
   runPairedExperimentWithDecisionAdapter,
   type DecisionRequest,
@@ -18,6 +21,11 @@ import { registerX402Resource, type X402ResourceConfig } from "./x402-resource.j
 const runRequestSchema = z.object({
   protocolSeed: z.string().min(1).max(64).regex(/^[a-zA-Z0-9_-]+$/),
   decisionMode: z.enum(["evidence-blind", "fixed-threshold", "llm"]),
+}).strict();
+
+const publishingRunRequestSchema = z.object({
+  protocolSeed: z.string().min(1).max(64).regex(/^[a-zA-Z0-9_-]+$/),
+  agentCount: z.union([z.literal(4), z.literal(24)]).default(24),
 }).strict();
 
 function pairIdFor(protocolSeed: string, decisionMode: string, paymentFingerprint: string): string {
@@ -82,6 +90,30 @@ export function createApp({
 
   app.get("/health", (_request, response) => {
     response.json({ status: "ok", storage: "postgresql", simulation: "paired-p0" });
+  });
+
+  app.post("/v1/experiments/zzz-3.1-jp/runs", (request, response) => {
+    const parsed = publishingRunRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ error: "INVALID_PUBLISHING_RUN_REQUEST", issues: parsed.error.issues });
+      return;
+    }
+    const result = runPublishingPair(parsed.data.protocolSeed, parsed.data.agentCount);
+    response.status(201).json({
+      pairId: `zzz-jp-${hashObject({ seed: parsed.data.protocolSeed, agentCount: parsed.data.agentCount }).slice(0, 16)}`,
+      result,
+      report: createPublishingReport(result),
+    });
+  });
+
+  app.post("/v1/experiments/zzz-3.1-jp/replay", (request, response) => {
+    const parsed = publishingRunRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      response.status(400).json({ error: "INVALID_PUBLISHING_REPLAY_REQUEST", issues: parsed.error.issues });
+      return;
+    }
+    const result = runPublishingPair(parsed.data.protocolSeed, parsed.data.agentCount);
+    response.json({ replay: replayPublishingPair(result) });
   });
 
   app.post("/v1/experiments/agorasim-p0/runs", async (request, response) => {

@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("inspects the recorded evidence chain and paired comparison", async ({ page }, testInfo) => {
   await page.goto("/");
 
-  await expect(page.getByText("AgoraSim", { exact: true })).toBeVisible();
+  await expect(page.getByAltText("Gesellschaft")).toBeVisible();
   await expect(page.getByText("Branch diff PASS")).toBeVisible();
   await expect(page.getByText("Synthetic simulation. Not a real-market forecast.")).toBeVisible();
   await expect(page.getByText("Evidence to paid adoption")).toBeVisible();

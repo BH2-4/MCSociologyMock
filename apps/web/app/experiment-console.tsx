@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { BranchRun, ExperimentEvent, PairedExperimentResult } from "@agorasim/core";
 import {
   Activity,
@@ -9,7 +10,6 @@ import {
   CornerUpLeft,
   Download,
   ExternalLink,
-  FlaskConical,
   GitCompareArrows,
   Network,
   Play,
@@ -230,7 +230,9 @@ export function ExperimentConsole({
   return (
     <main className="app-shell">
       <header className="topbar">
-        <div className="brand"><FlaskConical size={18} /> AgoraSim</div>
+        <div className="brand">
+          <img className="brand-logo" src="/gesellschaft-logo.svg" alt="Gesellschaft" />
+        </div>
         <div className="run-meta">
           <span><Radio size={14} /> Recorded / Mock</span>
           <span>Tick 08/08</span>
@@ -245,6 +247,7 @@ export function ExperimentConsole({
           <button className={view === "compare" ? "active" : ""} onClick={showCompare}><GitCompareArrows size={15} /> Compare</button>
         </div>
         <div className="run-controls">
+          <Link className="p0-p1-link" href="/p1">ZZZ 3.1 JP Lab</Link>
           <select aria-label="Decision mode" value={decisionMode} onChange={(event) => setDecisionMode(event.target.value as DecisionChoice)}>
             <option value="fixed-threshold">Fixed-threshold</option>
             <option value="evidence-blind">Evidence-blind</option>
