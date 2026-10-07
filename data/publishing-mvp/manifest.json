@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "task_id": "WO-DATA-INVENTORY-001",
+  "revision": 1,
+  "source_commit": "c25948a8732c948f27c3c070b3ae0414f1a10b25",
+  "batch_type": "local_inventory_only",
+  "external_verification": false,
+  "files": [
+    "README.md",
+    "sources.jsonl",
+    "facts.jsonl",
+    "gaps.csv",
+    "manifest.json"
+  ],
+  "counts": {
+    "sources": 3,
+    "facts": 14,
+    "gaps": 8
+  }
+}
