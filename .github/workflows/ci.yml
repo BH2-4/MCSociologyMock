@@ -1,0 +1,21 @@
+name: Publishing data checks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Compile the affected Python checker
+        run: python3 -m py_compile scripts/validate_publishing_data.py
+      - name: Parse Work Orders and validate the first data batch if present
+        run: python3 scripts/validate_publishing_data.py
