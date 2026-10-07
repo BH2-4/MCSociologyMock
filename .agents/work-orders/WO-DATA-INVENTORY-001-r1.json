@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "task_id": "WO-DATA-INVENTORY-001",
+  "revision": 1,
+  "objective": "建立发行数据基础盘点与最小来源样本，仅阅读 README.md、docs/DOD.md、packages/core/src/publishing-data.ts 三份已提交材料。源快照提交为 c25948a8732c948f27c3c070b3ae0414f1a10b25；可信准备步骤实际读取该提交的原始文件字节，采集时间为 2026-10-07T02:04:34Z。已计算 SHA-256：README.md=147ad09cabd2b0306054c0e73114b8a3ec4dae8c0f7ffeca9572914a9a6d4570；docs/DOD.md=40bb0f8a0bd5a92b45e09f7790b19229917b97e45f577ad91df91b108cdd6f93；packages/core/src/publishing-data.ts=68405031a32bc7ed4a1844d36b032fd4850688afc722dec0c1cdee799534b80f。依照 Delivery Skill 生成五个文件，建立可追溯的本地声明索引及验证缺口，不开展完整外部调研。源文件在 Plan 合并和启动前须由操作者确认未漂移；Worker 不负责运行 Git 或哈希命令。",
+  "out_of_scope": [
+    "联网调研、DOCX 提取、导入未跟踪资料、完整六类数据库和 raw 材料归档",
+    "改动产品源码、现有文档、Skill、CI、执行器或模型配置",
+    "运行模拟、调参、支付、链上操作、部署或自动合并",
+    "把本地报告或代码中的官方标签、PASS、日期、排名、估算或合成结果当成新验证的现实事实"
+  ],
+  "acceptance_criteria": [
+    "仅新增五份允许文件，按 Delivery Skill 的字段约定完成本地资料盘点；不改动原始输入或其他现有工作。",
+    "sources.jsonl 对三份输入各登记一条来源，使用提供的完整提交、真实准备采集时间和原始文件摘要，明确未开展外部核验。",
+    "facts.jsonl 至少从每份来源提取一条有用声明，引用存在的 source_id，使用 pending_verification 或 engineering_default，保留时间、单位与证据范围限制。",
+    "gaps.csv 列出外部来源核验及日本移动端、全平台、东京、单角色收入边界的实际缺口；manifest.json 的文件列表和来源、声明、缺口计数与产出一致。",
+    "README.md 清楚说明本批为 local_inventory_only、外部核验未发生、完整研究未完成；不声称 Worker 已运行 shell 校验或 CI。机械校验在后续 PR 阶段实际执行，不是 Worker 的工具要求。"
+  ],
+  "allowed_paths": [
+    "data/publishing-mvp/README.md",
+    "data/publishing-mvp/sources.jsonl",
+    "data/publishing-mvp/facts.jsonl",
+    "data/publishing-mvp/gaps.csv",
+    "data/publishing-mvp/manifest.json"
+  ],
+  "worker_profile": "claude-code-v1",
+  "skill_ref": ".agents/policies/delivery-skill/SKILL.md",
+  "stop_conditions": [
+    "无法读取必要输入，或发现输入与提供的快照信息明显矛盾时停止，不从浮动网页、其他会话或未跟踪文件替代输入。",
+    "完成本次文件产出必须取得额外工具、凭据或修改允许范围外文件时停止；仅缺少外部证据则记入 gaps，不扩权。",
+    "达到本次运行的回合、时间或 CLI 预算限制仍未完成时，如实报告 incomplete，不宣称交付成功。"
+  ],
+  "limits": {
+    "max_turns": 32,
+    "timeout_seconds": 900,
+    "max_budget_usd": 5
+  },
+  "review_evidence": [
+    {"path": "README.md", "ref": "c25948a8732c948f27c3c070b3ae0414f1a10b25", "purpose": "本地项目声明与研究范围；不代表重新验证现实事实或运行结果。"},
+    {"path": "docs/DOD.md", "ref": "c25948a8732c948f27c3c070b3ae0414f1a10b25", "purpose": "文档所记载的验收声明及限制；不代表本轮重新执行测试。"},
+    {"path": "packages/core/src/publishing-data.ts", "ref": "c25948a8732c948f27c3c070b3ae0414f1a10b25", "purpose": "代码内的来源元数据与工程配置；来源标签和常量不等于外部事实已核验。"}
+  ]
+}
