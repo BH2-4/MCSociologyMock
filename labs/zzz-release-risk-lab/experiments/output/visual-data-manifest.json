@@ -1,0 +1,24 @@
+{
+  "manifestVersion": "visual-data-manifest/1.2",
+  "artifact": "visual-data-beta0.4.json",
+  "artifactVersion": "visual-data-beta0.4",
+  "bundleSchemaVersion": "visual-bundle/1.0",
+  "sensitivitySchemaVersion": "sensitivity-bundle/1.1",
+  "byteLength": 1114237,
+  "sha256": "f7eb8dba047663ba12fd3ec9801a15d416f489e1d1a19befff687c8f0f0d70a7",
+  "populationSize": 125,
+  "cycleDays": 42,
+  "evidenceGrade": "B",
+  "capabilities": {
+    "dailyRandomAccess": true,
+    "explainableDrivers": true,
+    "dailyAggregateBands": true,
+    "finalSegmentBands": true,
+    "pairedStrategyDelta": true,
+    "dailySegmentBands": true,
+    "perAgentBands": false,
+    "relationEdges": false,
+    "reverseVoice": false,
+    "reverseHeat": false
+  }
+}
