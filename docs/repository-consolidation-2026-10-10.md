@@ -42,10 +42,12 @@
 
 MC 原有协作者权限保留。ZZZ 原有 CI 文件收入模块目录作为来源快照，不会自动成为主仓库 CI。原 Actions 历史及 PR 记录继续位于归档仓库；本地快照用于查阅，不等同于可导入 GitHub 的完整还原包。
 
+MC 现有发行数据批次锁定了根 README、DoD 和数据实现的来源哈希，因此这些原文件保持不变，模块入口集中在 `labs/README.md`。GitHub Projects V2 因现有登录缺少 `read:project` 权限而未读取或备份；原仓库的项目链接随归档保留。ZZZ 的 wiki Git 地址返回不存在，没有取得 wiki 内容。
+
 ## 验证与恢复
 
 - 比对迁入模块的 Git tree，要求与原 ZZZ 主分支 tree 完全相同。
-- 比对 MC 原有跟踪文件，除根 README 增加入口外，保持内容不变。
+- 比对 MC 原有 106 个跟踪文件，全部保持内容不变。
 - 主平台执行一次 `pnpm install --frozen-lockfile` 与 `pnpm build`。
 - 模块执行一次 `npm ci` 与 `npm run build`。
 - 现有发行数据 CI 在合并 PR 中复验。

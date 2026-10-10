@@ -106,12 +106,6 @@ Gesellschaft 面向缺少大规模研究资源的独立开发者，以及希望�
 
 Minecraft 展示仍属后续愿景。未来公开发布时将明确非官方关系，并遵守 Minecraft、Mojang 与 Microsoft 的品牌和分发规则。
 
-## 研究实验模块
-
-[`labs/zzz-release-risk-lab`](./labs/zzz-release-risk-lab/) 保留 ZZZ Release Risk Lab 的证据账本、理论编译管线、42 天情景推演与 3D 回放。该模块使用独立的 npm 项目，主平台继续使用现有 pnpm workspace。
-
-两套实现并非重复代码，已统一存放在本仓库。入口与运行方式见 [实验模块说明](./labs/README.md)，原提交历史、未完成草稿分支与原 PR 的去向见 [仓库合并记录](./docs/repository-consolidation-2026-10-10.md)。
-
 ## 本地运行
 
 要求 Node.js 20+、pnpm 11.4+、Docker Compose 和 Google Chrome。
