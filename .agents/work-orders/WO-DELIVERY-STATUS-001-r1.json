@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "task_id": "WO-DELIVERY-STATUS-001",
+  "revision": 1,
+  "objective": "仅更新 docs/delivery-first-task.md，补充首轮交付已接纳的当前状态及 agent-delivery launch 使用方法。输入固定在 d1dbccadc8988b4e3d6e286a558ffc3c49320b04；可信准备于 2026-10-14T02:16:41.082124+00:00 读取原始提交字节并计算摘要：docs/delivery-first-task.md=795e61e6e0368388429ad9b3fc2a10fb1cac7aa95f7ac50f8507560900135d2f; data/publishing-mvp/manifest.json=3cf02c99581e8423c234cf43f6ff33324669c37001200157abdb5f7605d02e2e。可信控制程序只读核对 GitHub：PR #2 https://github.com/BH2-4/MCSociologyMock/pull/2 于 2026-10-07T02:57:21Z 合并，merge SHA e6e660a856c4fa7585c615a1d18867c676d0d7e8；PR #3 https://github.com/BH2-4/MCSociologyMock/pull/3 于 2026-10-10T02:08:03Z 合并，merge SHA d1dbccadc8988b4e3d6e286a558ffc3c49320b04。Agent Delivery Loop PR #40 已合并，可信控制程序已确认新版 launch CLI 可用；这不代表新版在本项目的完整业务执行已通过。",
+  "out_of_scope": [
+    "修改其他文件、数据批次、产品源码、执行器或个人配置",
+    "重跑旧数据盘点工单、外部研究、模拟、支付、部署和自动合并"
+  ],
+  "acceptance_criteria": [
+    "只修改 docs/delivery-first-task.md，补上 PR #2 已接纳五个数据文件的状态、完整合并提交及来源链接；保留 onboarding 的历史语义。",
+    "依据既有 manifest 写明 3 条来源、14 条声明、8 条缺口以及 local_inventory_only / external_verification=false；不宣称新的外部核验、模型执行或完整交付验证。",
+    "增加 launch 的通用短命令及私有配置说明，明确已合并 Plan PR、Work Order、固定安装版本和凭据路径；不出现真实私有路径、令牌或 auto-merge。"
+  ],
+  "allowed_paths": [
+    "docs/delivery-first-task.md"
+  ],
+  "worker_profile": "claude-code-v1",
+  "skill_ref": ".agents/policies/delivery-status/SKILL.md",
+  "stop_conditions": [
+    "输入无法读取或与固定准备信息矛盾时停止，不引用浮动网页或其他会话替代",
+    "需要修改范围外文件、额外工具或凭据时停止",
+    "达到回合、时间或预算限制时如实报告未完成"
+  ],
+  "limits": {
+    "max_turns": 12,
+    "timeout_seconds": 300,
+    "max_budget_usd": 2
+  },
+  "review_evidence": [
+    {
+      "path": "docs/delivery-first-task.md",
+      "ref": "d1dbccadc8988b4e3d6e286a558ffc3c49320b04",
+      "purpose": "核对既有说明、已接纳的数据批次计数及证据边界，不代表新的执行或外部核验"
+    },
+    {
+      "path": "data/publishing-mvp/manifest.json",
+      "ref": "d1dbccadc8988b4e3d6e286a558ffc3c49320b04",
+      "purpose": "核对既有说明、已接纳的数据批次计数及证据边界，不代表新的执行或外部核验"
+    }
+  ]
+}
